@@ -4,25 +4,23 @@
 
 :root {
   /* Brand Colors */
-  --color-primary: #6D28D9;
-  /* Deep Purple */
-  --color-primary-light: #8B5CF6;
-  --color-primary-dark: #4C1D95;
+  --color-primary: #8B5CF6;
+  --color-primary-light: #A78BFA;
+  --color-primary-dark: #6D28D9;
 
-  --color-secondary: #F97316;
-  /* Vibrant Orange */
-  --color-secondary-light: #FB923C;
-  --color-secondary-dark: #C2410C;
+  --color-secondary: #FB923C;
+  --color-secondary-light: #FDBA74;
+  --color-secondary-dark: #F97316;
 
-  /* Backgrounds */
-  --color-bg: #F3F4F6;
-  --color-bg-card: #FFFFFF;
+  /* Dark Theme Backgrounds */
+  --color-bg: #0F172A;
+  --color-bg-card: #1E293B;
   --color-bg-overlay: rgba(0, 0, 0, 0.5);
 
-  /* Text */
-  --color-text: #1F2937;
-  --color-text-muted: #6B7280;
-  --color-text-inverted: #FFFFFF;
+  /* Dark Theme Text */
+  --color-text: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-text-inverted: #0F172A;
 
   /* Fonts */
   --font-primary: 'Inter', system-ui, -apple-system, sans-serif;
@@ -34,8 +32,7 @@
   --color-warning: #F59E0B;
 
   /* Borders */
-  --color-border: #E2E8F0;
-  /* Slate 200 */
+  --color-border: #334155;
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -53,33 +50,6 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 300ms ease;
-}
-
-/* Dark Mode Overrides - Support both system pref and manual .dark class */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0F172A;
-    --color-bg-card: #1E293B;
-    --color-text: #F8FAFC;
-    --color-text-muted: #94A3B8;
-    --color-primary: #8B5CF6;
-    --color-primary-dark: #6D28D9;
-    --color-secondary: #FB923C;
-    --color-border: #334155;
-    /* Slate 700 */
-  }
-}
-
-.dark {
-  --color-bg: #0F172A;
-  --color-bg-card: #1E293B;
-  --color-text: #F8FAFC;
-  --color-text-muted: #94A3B8;
-  --color-primary: #8B5CF6;
-  --color-primary-dark: #6D28D9;
-  --color-secondary: #FB923C;
-  --color-border: #334155;
-  /* Slate 700 */
 }
 
 * {
@@ -101,7 +71,7 @@ body {
   color: var(--color-text);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 300ms ease, color 300ms ease;
 }
 
 button {

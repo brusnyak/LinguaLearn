@@ -5,10 +5,13 @@ interface CalendarViewProps {
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ history }) => {
-    // Generate last 14 days for simple view
-    const days = Array.from({ length: 14 }, (_, i) => {
+    // Show 7 days on mobile, 14 on desktop
+    const isMobile = window.innerWidth < 768;
+    const daysToShow = isMobile ? 7 : 14;
+
+    const days = Array.from({ length: daysToShow }, (_, i) => {
         const d = new Date();
-        d.setDate(d.getDate() - (13 - i));
+        d.setDate(d.getDate() - (daysToShow - 1 - i));
         return d.toISOString().split('T')[0];
     });
 
@@ -23,9 +26,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({ history }) => {
                     return (
                         <div key={date} className="flex flex-col items-center gap-1">
                             <div
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${isActive
-                                        ? 'bg-[var(--color-primary)] text-white shadow-md scale-110'
-                                        : 'bg-gray-100 dark:bg-gray-800 text-[var(--color-text-muted)]'
+                                className={`w-6 sm:w-8 h-6 sm:h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all ${isActive
+                                    ? 'bg-[var(--color-primary)] text-white shadow-md scale-110'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-[var(--color-text-muted)]'
                                     }`}
                                 title={date}
                             >

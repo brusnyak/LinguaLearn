@@ -1,36 +1,54 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Book, Gamepad2, Settings, Home, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Book, Gamepad2, Settings, Home, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useDevice } from '../hooks/useDevice';
 
 interface LayoutProps {
     children: React.ReactNode;
+    fullscreen?: boolean; // Hide header and footer for immersive game experience
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
     const location = useLocation();
     const { isMobile } = useDevice();
-    const [theme, setTheme] = useState<'light' | 'dark'>('light');
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [showHeader, setShowHeader] = useState(true);
+    const [lastScrollY, setLastScrollY] = useState(0);
 
-    // Initialize theme
+    // Initialize sidebar state and enable dark mode
     useEffect(() => {
-        const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-        if (savedTheme) {
-            setTheme(savedTheme);
-            document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-        } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            setTheme('dark');
-            document.documentElement.classList.add('dark');
-        }
+        // Always enable dark mode
+        document.documentElement.classList.add('dark');
 
-        // Initialize sidebar state
         const savedSidebarState = localStorage.getItem('sidebar-collapsed');
         if (savedSidebarState === 'true') {
             setIsSidebarCollapsed(true);
         }
     }, []);
+
+    // Auto-hide header on scroll (mobile only)
+    useEffect(() => {
+        if (!isMobile) return;
+
+        const handleScroll = () => {
+            const currentScrollY = window.scrollY;
+
+            // Show header when scrolling up or at top
+            if (currentScrollY < lastScrollY || currentScrollY < 50) {
+                setShowHeader(true);
+            }
+            // Hide header when scrolling down
+            else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+                setShowHeader(false);
+            }
+
+            setLastScrollY(currentScrollY);
+        };
+
+        window.addEventListener('scroll', handleScroll, { passive: true });
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, [isMobile, lastScrollY]);
 
     // Online status
     useEffect(() => {
@@ -44,12 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         };
     }, []);
 
-    const toggleTheme = () => {
-        const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        localStorage.setItem('theme', newTheme);
-        document.documentElement.classList.toggle('dark');
-    };
+
 
     const toggleSidebar = () => {
         const newState = !isSidebarCollapsed;
@@ -108,14 +121,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </nav>
 
                     <div className="p-4 border-t border-[var(--color-border)]">
-                        <button
-                            onClick={toggleTheme}
-                            className={`flex items-center ${isSidebarCollapsed ? 'justify-center' : 'space-x-3 px-4'} py-3 w-full rounded-xl text-[var(--color-text-muted)] hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors`}
-                            title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-                        >
-                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                            {!isSidebarCollapsed && <span>{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>}
-                        </button>
                     </div>
                 </aside>
             )}
@@ -124,17 +129,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <div className="flex-1 flex flex-col min-h-screen">
 
                 {/* Mobile Header */}
-                {isMobile && (
-                    <header className="sticky top-0 z-10 bg-[var(--color-bg-card)]/80 backdrop-blur-md border-b border-[var(--color-border)] px-4 py-3 flex justify-between items-center shadow-sm">
+                {isMobile && !fullscreen && (
+                    <header
+                        className={`sticky top-0 z-10 bg-[var(--color-bg-card)]/80 backdrop-blur-md border-b border-[var(--color-border)] px-4 py-3 flex justify-between items-center shadow-sm transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'
+                            }`}
+                    >
                         <h1 className="text-xl font-bold bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] bg-clip-text text-transparent">
                             LinguaLearn
                         </h1>
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                        >
-                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                        </button>
                     </header>
                 )}
 
@@ -151,7 +153,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 </main>
 
                 {/* Mobile Bottom Nav */}
-                {isMobile && (
+                {isMobile && !fullscreen && (
                     <nav className="fixed bottom-0 left-0 right-0 bg-[var(--color-bg-card)] border-t border-[var(--color-border)] pb-safe z-50">
                         <div className="flex justify-around items-center h-16">
                             {navItems.map((item) => {

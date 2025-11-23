@@ -16,9 +16,15 @@ const FlashcardGamePage: React.FC = () => {
     const [isFlipped, setIsFlipped] = useState(false);
     const [loading, setLoading] = useState(true);
     const [finished, setFinished] = useState(false);
+    const [showTutorial, setShowTutorial] = useState(false);
 
     useEffect(() => {
         loadWords();
+        // Show tutorial on first visit
+        const hasSeenTutorial = localStorage.getItem('flashcard-tutorial-seen');
+        if (!hasSeenTutorial) {
+            setShowTutorial(true);
+        }
     }, []);
 
     const loadWords = async () => {
@@ -130,11 +136,23 @@ const FlashcardGamePage: React.FC = () => {
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentIndex}
+                        drag="x"
+                        dragElastic={0.2}
+                        onDragEnd={(_, info) => {
+                            // Swipe right = known (> 100px)
+                            if (info.offset.x > 100) {
+                                handleNext(true);
+                            }
+                            // Swipe left = forgot (< -100px)
+                            else if (info.offset.x < -100) {
+                                handleNext(false);
+                            }
+                        }}
                         initial={{ x: 300, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: direction * 500, opacity: 0, rotate: direction * 20 }}
-                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-                        className="relative w-full aspect-[3/4] max-h-[400px] cursor-pointer group"
+                        exit={{ x: direction * 300, opacity: 0, transition: { duration: 0.2 } }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                        className="relative w-full aspect-[3/4] max-h-[400px] cursor-grab active:cursor-grabbing group"
                         onClick={() => setIsFlipped(!isFlipped)}
                     >
                         <motion.div
@@ -153,7 +171,7 @@ const FlashcardGamePage: React.FC = () => {
                                 <span className="text-sm uppercase tracking-widest text-[var(--color-text-muted)] mb-4">Term</span>
                                 <h2 className="text-4xl font-bold text-center">{currentWord.term}</h2>
                                 <div className="absolute bottom-6 text-[var(--color-text-muted)] flex items-center gap-2 text-sm">
-                                    <RotateCw size={16} /> Tap to flip
+                                    <RotateCw size={16} /> Tap to flip • Swipe to answer
                                 </div>
                             </div>
 
@@ -203,6 +221,51 @@ const FlashcardGamePage: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            {/* Tutorial Modal */}
+            <AnimatePresence>
+                {showTutorial && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            className="bg-[var(--color-bg-card)] rounded-2xl p-6 max-w-sm w-full shadow-2xl"
+                        >
+                            <h3 className="text-2xl font-bold mb-4">How to Play</h3>
+                            <div className="space-y-4 text-[var(--color-text-muted)]">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-600 dark:text-green-400">
+                                        👉
+                                    </div>
+                                    <span>Swipe <strong className="text-green-600 dark:text-green-400">right</strong> if you know the word</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">
+                                        👈
+                                    </div>
+                                    <span>Swipe <strong className="text-red-600 dark:text-red-400">left</strong> if you forgot</span>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center text-white">
+                                        <RotateCw size={20} />
+                                    </div>
+                                    <span>Tap card to flip and see the answer</span>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowTutorial(false);
+                                    localStorage.setItem('flashcard-tutorial-seen', 'true');
+                                }}
+                                className="w-full mt-6 btn btn-primary"
+                            >
+                                Got it!
+                            </button>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

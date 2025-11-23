@@ -69,7 +69,7 @@ const DictionaryPage: React.FC = () => {
             {loading ? (
                 <div className="text-center py-10 text-[var(--color-text-muted)]">Loading dictionary...</div>
             ) : (
-                <div className="space-y-6">
+                <div className="space-y-6 pb-20">
                     {sortedLetters.length === 0 ? (
                         <div className="text-center py-10 text-[var(--color-text-muted)]">
                             No words found. Try adding some!

@@ -49,25 +49,24 @@ function App() {
       <Router>
         <Routes>
           <Route path="/onboarding" element={<OnboardingPage />} />
-          <Route path="*" element={
-            needsOnboarding ? (
-              <OnboardingPage />
-            ) : (
-              <Layout>
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/dictionary" element={<DictionaryPage />} />
-                  <Route path="/word/:id" element={<WordDetailPage />} />
-                  <Route path="/games" element={<GamesPage />} />
-                  <Route path="/games/dungeon" element={<VocabDungeonPage />} />
-                  <Route path="/games/flashcards" element={<FlashcardGamePage />} />
-                  <Route path="/games/word-match" element={<WordMatchPage />} />
-                  <Route path="/content" element={<ContentSuggestionsPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                </Routes>
-              </Layout>
-            )
-          } />
+          {needsOnboarding ? (
+            <Route path="*" element={<OnboardingPage />} />
+          ) : (
+            <>
+              {/* Regular routes with normal layout */}
+              <Route path="/" element={<Layout><HomePage /></Layout>} />
+              <Route path="/dictionary" element={<Layout><DictionaryPage /></Layout>} />
+              <Route path="/word/:id" element={<Layout><WordDetailPage /></Layout>} />
+              <Route path="/games" element={<Layout><GamesPage /></Layout>} />
+              <Route path="/content" element={<Layout><ContentSuggestionsPage /></Layout>} />
+              <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
+
+              {/* Game routes with fullscreen layout (no header/footer) */}
+              <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />
+              <Route path="/games/flashcards" element={<Layout fullscreen><FlashcardGamePage /></Layout>} />
+              <Route path="/games/word-match" element={<Layout fullscreen><WordMatchPage /></Layout>} />
+            </>
+          )}
         </Routes>
       </Router>
     </ToastProvider>
