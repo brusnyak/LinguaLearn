@@ -1,0 +1,29 @@
+
+
+
+after we fix that we can work on improvements like:
+more games, more levels - phase 1 complete:
+Phase 2 (Later/Optional):
+
+Word Connect (more complex UI)
+Crossword (puzzle generation logic)
+Pronunciation (needs speech recognition setup)
+
+
+we could add some sounds for confirmation, notification system - done
+
+we should add proper pronounciation of the words in according langauge - done
+
+we could add like a calendar section so that user keep track of their daily progress - done
+then set notifications for the user to get back and train - done
+
+we could implement system so thst not only words would be possible to enlist, but proper phrases - done
+
+in home section we could then add that progress - done
+add word of the day section - done
+suggested films for you to watch to improve your english 
+suggest some article or short story to read to improve your english, it should be robust so that they could listen to the story [specific phrase, sentance, word; it should be robust. they should also be able to select some part of the story: whole story, sentance, phrase, word to see transaltion to it], then there should be functionality to record or read aloud and there should be functionality to check it adn give grade, suggestion. as i said... robust.
+
+then we could properly setup user account, where we would get what do they want to learn language for, their native and target language, their current level to be determined by the test - done, but without the test, user simply selects their level.
+
+
