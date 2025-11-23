@@ -2,6 +2,12 @@
 
 A Progressive Web App (PWA) for language learning with interactive games, spaced repetition, and immersive content recommendations.
 
+## 🚀 Live Demo
+
+**Try it now:** [lingua-learn.vercel.app](https://lingua-learn-mtluc4bao-brusnyaks-projects.vercel.app)
+
+> Install as a PWA on your phone or desktop for the best experience!
+
 ## Features
 
 - 📚 **Dictionary Management**: Add and organize words and phrases
