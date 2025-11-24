@@ -4,6 +4,8 @@ const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
 if (!API_KEY) {
     console.warn('Gemini API key not found. Story generation will not work.');
+} else {
+    console.log('Gemini API initialized with key:', API_KEY.substring(0, 10) + '...');
 }
 
 const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
