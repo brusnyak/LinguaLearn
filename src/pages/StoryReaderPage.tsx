@@ -80,7 +80,16 @@ const StoryReaderPage: React.FC = () => {
             recognitionInstance.onerror = (event: any) => {
                 console.error('Speech recognition error:', event.error);
                 setIsListening(false);
-                showToast('Speech recognition error', 'error');
+
+                if (event.error === 'network') {
+                    showToast('Network error: Speech recognition requires an internet connection.', 'error');
+                } else if (event.error === 'not-allowed') {
+                    showToast('Microphone access denied. Please check permissions.', 'error');
+                } else if (event.error === 'no-speech') {
+                    // Ignore no-speech errors, just stop listening
+                } else {
+                    showToast(`Speech recognition error: ${event.error}`, 'error');
+                }
             };
 
             recognitionInstance.onend = () => {
@@ -158,6 +167,11 @@ const StoryReaderPage: React.FC = () => {
     const handleListen = () => {
         if (!recognition) {
             showToast('Speech recognition not supported', 'error');
+            return;
+        }
+
+        if (!navigator.onLine) {
+            showToast('Speech recognition requires an internet connection.', 'error');
             return;
         }
 
