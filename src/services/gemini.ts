@@ -37,7 +37,7 @@ export async function generateStory(
         throw new Error('Gemini API not configured');
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
     const levelInstructions = {
         beginner: 'Use simple vocabulary and short sentences (A1-A2 level). Keep the story around 150-200 words.',
