@@ -230,7 +230,7 @@ const StoryReaderPage: React.FC = () => {
             {/* Header */}
             <div className="flex items-center gap-4">
                 <button
-                    onClick={() => navigate('/reading')}
+                    onClick={() => navigate(-1)}
                     className="p-2 hover:bg-[var(--color-bg-card)] rounded-lg transition-colors"
                 >
                     <ArrowLeft size={24} />
@@ -271,6 +271,9 @@ const StoryReaderPage: React.FC = () => {
             </div>
 
             {/* Story Content */}
+            <div className="text-sm text-[var(--color-text-muted)] text-center italic">
+                👆 Select any word or phrase to translate and add to dictionary
+            </div>
             <div
                 onMouseUp={handleTextSelection}
                 onTouchEnd={handleTextSelection}
