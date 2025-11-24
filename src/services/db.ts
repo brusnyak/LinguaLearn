@@ -1,20 +1,25 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Word, UserSettings } from '../types';
+import type { Word, UserSettings, User } from '../types';
+import { getCurrentUserId } from './auth';
 
 interface LinguaDB extends DBSchema {
     words: {
         key: string;
         value: Word;
-        indexes: { 'by-term': string; 'by-category': string };
+        indexes: { 'by-term': string; 'by-category': string; 'by-userId': string };
     };
     settings: {
         key: string;
         value: UserSettings;
     };
+    users: {
+        key: string;
+        value: User;
+    };
 }
 
 const DB_NAME = 'lingua-learn-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for users store
 
 let dbPromise: Promise<IDBPDatabase<LinguaDB>>;
 
@@ -27,11 +32,17 @@ export const initDB = () => {
                     const wordStore = db.createObjectStore('words', { keyPath: 'id' });
                     wordStore.createIndex('by-term', 'term');
                     wordStore.createIndex('by-category', 'category');
+                    wordStore.createIndex('by-userId', 'userId');
                 }
 
                 // Settings Store
                 if (!db.objectStoreNames.contains('settings')) {
                     db.createObjectStore('settings');
+                }
+
+                // Users Store (new in v2)
+                if (!db.objectStoreNames.contains('users')) {
+                    db.createObjectStore('users', { keyPath: 'id' });
                 }
             },
         });
@@ -42,11 +53,19 @@ export const initDB = () => {
 export const db = {
     async getWords(): Promise<Word[]> {
         const db = await initDB();
-        return db.getAll('words');
+        const userId = getCurrentUserId();
+        const allWords = await db.getAll('words');
+        // Filter by userId if logged in
+        return userId ? allWords.filter(w => w.userId === userId) : allWords;
     },
 
     async addWord(word: Word): Promise<string> {
         const db = await initDB();
+        const userId = getCurrentUserId();
+        // Auto-add userId if logged in
+        if (userId && !word.userId) {
+            word.userId = userId;
+        }
         await db.put('words', word);
         return word.id;
     },

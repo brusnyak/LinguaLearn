@@ -1,5 +1,24 @@
+// User profile
+export interface UserProfile {
+    name: string;
+    nativeLanguage: string;
+    targetLanguage: string;
+    level: 'beginner' | 'intermediate' | 'advanced';
+}
+
+// User authentication
+export interface User {
+    id: string;
+    username: string;
+    passwordHash: string;
+    profile: UserProfile;
+    createdAt: number;
+    lastLogin: number;
+}
+
 export interface Word {
     id: string;
+    userId?: string; // Owner of this word
     term: string; // The word in the target language (e.g., English/German) or Native? User said "native ukrainian -> target english". So term is likely the one being learned.
     // Actually, usually "term" is the foreign word, "definition" is native.
     // Let's assume Term = Target Language (English/German), Definition = Native (Ukrainian).
@@ -24,24 +43,21 @@ export interface Category {
 }
 
 export interface UserProgress {
+    userId?: string;
     currentStreak: number;
     lastStudyDate: string; // ISO Date string YYYY-MM-DD
     studyHistory: string[]; // Array of ISO Date strings
 }
 
 export interface UserSettings {
+    userId?: string;
     theme: 'light' | 'dark';
     dailyGoal: number;
     progress: UserProgress;
     soundEnabled?: boolean;
     notificationsEnabled?: boolean;
     notificationTime?: string; // HH:mm format
-    profile?: {
-        name: string;
-        nativeLanguage: string;
-        targetLanguage: string;
-        level: 'beginner' | 'intermediate' | 'advanced';
-    };
+    profile?: UserProfile;
 }
 
 export type GameType = 'flashcard' | 'dungeon' | 'match';

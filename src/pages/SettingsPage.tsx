@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Info, User, Save, Bell } from 'lucide-react';
+import { Trash2, Info, User, Save, Bell, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import AppearanceSettings from '../components/AppearanceSettings';
 import { db } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
+import { getCurrentUser, logoutUser } from '../services/auth';
 
 const SettingsPage: React.FC = () => {
+    const navigate = useNavigate();
     const { showToast } = useToast();
+    const [currentUsername, setCurrentUsername] = useState('');
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [name, setName] = useState('');
     const [nativeLang, setNativeLang] = useState('');
@@ -19,10 +23,18 @@ const SettingsPage: React.FC = () => {
 
     useEffect(() => {
         loadSettings();
+        loadCurrentUser();
         if ('Notification' in window) {
             setNotificationPermission(Notification.permission);
         }
     }, []);
+
+    const loadCurrentUser = async () => {
+        const user = await getCurrentUser();
+        if (user) {
+            setCurrentUsername(user.username);
+        }
+    };
 
     const loadSettings = async () => {
         const s = await db.getSettings();
@@ -103,9 +115,38 @@ const SettingsPage: React.FC = () => {
         }
     };
 
+    const handleLogout = () => {
+        if (confirm('Are you sure you want to logout?')) {
+            logoutUser();
+            window.location.href = '/login';
+        }
+    };
+
     return (
-        <div className="space-y-6">
-            <h2 className="text-2xl font-bold">Settings</h2>
+        <div className="space-y-8 pb-20">
+            <h1 className="text-3xl font-bold">Settings</h1>
+
+            {/* Account Section */}
+            <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm border border-[var(--color-border)]">
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+                    <User size={24} /> Account
+                </h2>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
+                            Username
+                        </label>
+                        <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
+                    </div>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full md:w-auto px-6 py-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <LogOut size={20} />
+                        Logout
+                    </button>
+                </div>
+            </div>
 
             {/* Profile Settings */}
             <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
@@ -203,8 +244,8 @@ const SettingsPage: React.FC = () => {
                             <button
                                 onClick={() => setNotificationsEnabled(!notificationsEnabled)}
                                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${notificationsEnabled
-                                        ? 'bg-[var(--color-primary)]'
-                                        : 'bg-gray-200 dark:bg-gray-700'
+                                    ? 'bg-[var(--color-primary)]'
+                                    : 'bg-gray-200 dark:bg-gray-700'
                                     }`}
                             >
                                 <span

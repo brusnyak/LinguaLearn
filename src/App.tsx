@@ -11,22 +11,36 @@ import WordMatchPage from './pages/WordMatchPage';
 import ContentSuggestionsPage from './pages/ContentSuggestionsPage';
 import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
+import LoginPage from './pages/LoginPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
+import { getCurrentUser } from './services/auth';
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
     const init = async () => {
       try {
         await db.seedInitialData(INITIAL_WORDS);
-        const settings = await db.getSettings();
-        if (!settings?.profile?.name) {
-          setNeedsOnboarding(true);
+
+        // Check if user is logged in
+        const currentUser = await getCurrentUser();
+
+        if (!currentUser) {
+          // No user logged in - need to login
+          setNeedsAuth(true);
+        } else {
+          // User logged in - check if they have profile
+          const settings = await db.getSettings();
+          if (!settings?.profile?.name) {
+            setNeedsOnboarding(true);
+          }
         }
+
         setIsInitialized(true);
       } catch (error) {
         console.error('Failed to initialize DB:', error);
@@ -48,8 +62,11 @@ function App() {
     <ToastProvider>
       <Router>
         <Routes>
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
-          {needsOnboarding ? (
+          {needsAuth ? (
+            <Route path="*" element={<LoginPage />} />
+          ) : needsOnboarding ? (
             <Route path="*" element={<OnboardingPage />} />
           ) : (
             <>
