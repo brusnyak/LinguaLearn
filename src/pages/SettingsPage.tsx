@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Trash2, Info, User, Save, Bell, LogOut } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import AppearanceSettings from '../components/AppearanceSettings';
 import { db } from '../services/db';
 import type { UserSettings } from '../types';
@@ -8,7 +7,6 @@ import { useToast } from '../context/ToastContext';
 import { getCurrentUser, logoutUser } from '../services/auth';
 
 const SettingsPage: React.FC = () => {
-    const navigate = useNavigate();
     const { showToast } = useToast();
     const [currentUsername, setCurrentUsername] = useState('');
     const [settings, setSettings] = useState<UserSettings | null>(null);
