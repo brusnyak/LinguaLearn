@@ -19,6 +19,7 @@ const StoryReaderPage: React.FC = () => {
     const [isListening, setIsListening] = useState(false);
     const [recognition, setRecognition] = useState<any>(null);
     const synthRef = useRef<SpeechSynthesisUtterance | null>(null);
+    const [transcript, setTranscript] = useState('');
 
     useEffect(() => {
         loadStory();
@@ -27,6 +28,9 @@ const StoryReaderPage: React.FC = () => {
         return () => {
             if (synthRef.current) {
                 window.speechSynthesis.cancel();
+            }
+            if (recognition) {
+                recognition.stop();
             }
         };
     }, [storyId]);
@@ -47,11 +51,30 @@ const StoryReaderPage: React.FC = () => {
             const SpeechRecognitionAPI = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
             const recognitionInstance = new SpeechRecognitionAPI();
             recognitionInstance.continuous = false;
-            recognitionInstance.interimResults = false;
+            recognitionInstance.interimResults = true; // Enable interim results for live typing effect
 
             recognitionInstance.onresult = (event: any) => {
-                const transcript = event.results[0][0].transcript;
-                handleSpeechResult(transcript);
+                let currentTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        currentTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    if (selectedText) {
+                        handleSpeechResult(finalTranscript);
+                    } else {
+                        setTranscript(finalTranscript);
+                    }
+                } else {
+                    // For interim results, update the transcript state
+                    setTranscript(currentTranscript);
+                }
             };
 
             recognitionInstance.onerror = (event: any) => {
@@ -74,6 +97,7 @@ const StoryReaderPage: React.FC = () => {
             const text = selection.toString().trim();
             setSelectedText(text);
             setTranslation('');
+            setTranscript(''); // Clear transcript when text is selected
 
             setTranslating(true);
             try {
@@ -141,13 +165,11 @@ const StoryReaderPage: React.FC = () => {
             recognition.stop();
             setIsListening(false);
         } else {
-            if (selectedText) {
-                recognition.lang = getLanguageCode(story!.language);
-                recognition.start();
-                setIsListening(true);
-            } else {
-                showToast('Select text first to practice pronunciation', 'error');
-            }
+            setTranscript(''); // Clear previous transcript
+            setSelectedText(''); // Clear selected text when starting dictation
+            recognition.lang = getLanguageCode(story!.language);
+            recognition.start();
+            setIsListening(true);
         }
     };
 
@@ -257,27 +279,44 @@ const StoryReaderPage: React.FC = () => {
                     {isPlaying ? <Pause size={20} /> : <Play size={20} />}
                     {isPlaying ? 'Pause' : 'Play Story'}
                 </button>
-                {selectedText && (
-                    <button
-                        onClick={handleListen}
-                        className={`p-3 rounded-lg font-bold transition-colors ${isListening
-                            ? 'bg-red-500 text-white'
-                            : 'bg-[var(--color-bg-card)] hover:bg-[var(--color-bg)]'
-                            }`}
-                    >
-                        <Mic size={20} />
-                    </button>
-                )}
+                <button
+                    onClick={handleListen}
+                    className={`p-3 rounded-lg font-bold transition-colors ${isListening
+                        ? 'bg-red-500 text-white'
+                        : 'bg-[var(--color-bg-card)] hover:bg-[var(--color-bg)]'
+                        }`}
+                >
+                    <Mic size={20} />
+                </button>
             </div>
+
+            {/* Dictation / Transcript Panel */}
+            {isListening && !selectedText && (
+                <div className="bg-[var(--color-bg-card)] p-4 rounded-xl border border-[var(--color-primary)] animate-pulse">
+                    <p className="text-sm text-[var(--color-text-muted)] mb-1">Listening...</p>
+                    <p className="text-lg font-medium">{transcript || "Start speaking..."}</p>
+                </div>
+            )}
+
+            {/* Result Display (when not listening but has transcript) */}
+            {!isListening && transcript && !selectedText && (
+                <div className="bg-[var(--color-bg-card)] p-4 rounded-xl border border-[var(--color-border)]">
+                    <div className="flex justify-between items-center mb-2">
+                        <p className="text-sm text-[var(--color-text-muted)]">You said:</p>
+                        <button onClick={() => setTranscript('')} className="text-xs text-[var(--color-primary)]">Clear</button>
+                    </div>
+                    <p className="text-lg">{transcript}</p>
+                </div>
+            )}
 
             {/* Story Content */}
             <div className="text-sm text-[var(--color-text-muted)] text-center italic">
-                👆 Select any word or phrase to translate and add to dictionary
+                👆 Select text to translate, or click 🎤 to practice speaking
             </div>
             <div
                 onMouseUp={handleTextSelection}
                 onTouchEnd={handleTextSelection}
-                className="bg-[var(--color-bg-card)] rounded-xl p-6 leading-relaxed text-lg select-text border border-[var(--color-border)]"
+                className="bg-[var(--color-bg-card)] rounded-xl p-6 leading-relaxed text-lg select-text border border-[var(--color-border)] whitespace-pre-wrap"
                 style={{ userSelect: 'text' }}
             >
                 {story.content}
