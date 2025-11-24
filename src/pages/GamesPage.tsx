@@ -33,7 +33,7 @@ const GamesPage: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">Game Hub</h2>
                 <div className="flex items-center text-[var(--color-primary)] font-bold">

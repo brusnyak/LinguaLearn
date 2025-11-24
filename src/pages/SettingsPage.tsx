@@ -315,6 +315,12 @@ const SettingsPage: React.FC = () => {
             <div className="text-center text-xs text-[var(--color-text-muted)] pt-8">
                 v1.0.0 • Built with React & Vite
             </div>
+
+            {/* Branding Footer */}
+            <div className="text-center text-[var(--color-text-muted)] text-sm space-y-1 pb-4">
+                <p className="font-bold">LinguaLearn v2.0</p>
+                <p>Made with ❤️ for language learners</p>
+            </div>
         </div>
     );
 };

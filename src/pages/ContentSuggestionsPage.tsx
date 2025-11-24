@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Film, Tv, Star, Calendar, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { getMoviesByLanguage, getTVShowsByLanguage, getPosterUrl, type TMDBMovie, type TMDBTVShow } from '../services/tmdb';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -7,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 type ContentType = 'movies' | 'tv';
 
 const ContentSuggestionsPage: React.FC = () => {
+    const navigate = useNavigate();
     const [contentType, setContentType] = useState<ContentType>('movies');
     const [movies, setMovies] = useState<TMDBMovie[]>([]);
     const [tvShows, setTVShows] = useState<TMDBTVShow[]>([]);
@@ -55,10 +57,17 @@ const ContentSuggestionsPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div>
+        <div className="space-y-6 pb-20">
+            {/* Header with Back Button */}
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="p-2 hover:bg-[var(--color-bg-card)] rounded-lg transition-colors"
+                    aria-label="Go back"
+                >
+                    <ArrowLeft size={24} />
+                </button>
+                <div className="flex-1">
                     <h2 className="text-2xl font-bold">Content Suggestions</h2>
                     <p className="text-sm text-[var(--color-text-muted)] mt-1">
                         Watching content in {targetLanguage} • {userLevel.charAt(0).toUpperCase() + userLevel.slice(1)} level

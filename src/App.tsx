@@ -12,6 +12,7 @@ import ContentSuggestionsPage from './pages/ContentSuggestionsPage';
 import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import LoginPage from './pages/LoginPage';
+import MasteredWordsPage from './pages/MasteredWordsPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
@@ -73,10 +74,11 @@ function App() {
               {/* Regular routes with normal layout */}
               <Route path="/" element={<Layout><HomePage /></Layout>} />
               <Route path="/dictionary" element={<Layout><DictionaryPage /></Layout>} />
-              <Route path="/word/:id" element={<Layout><WordDetailPage /></Layout>} />
+              <Route path="/dictionary/:id" element={<Layout><WordDetailPage /></Layout>} />
               <Route path="/games" element={<Layout><GamesPage /></Layout>} />
               <Route path="/content" element={<Layout><ContentSuggestionsPage /></Layout>} />
               <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
+              <Route path="/mastered" element={<Layout><MasteredWordsPage /></Layout>} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />

@@ -13,8 +13,6 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
     const { isMobile } = useDevice();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-    const [showHeader, setShowHeader] = useState(true);
-    const [lastScrollY, setLastScrollY] = useState(0);
 
     // Initialize sidebar state and enable dark mode
     useEffect(() => {
@@ -26,29 +24,6 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
             setIsSidebarCollapsed(true);
         }
     }, []);
-
-    // Auto-hide header on scroll (mobile only)
-    useEffect(() => {
-        if (!isMobile) return;
-
-        const handleScroll = () => {
-            const currentScrollY = window.scrollY;
-
-            // Show header when scrolling up or at top
-            if (currentScrollY < lastScrollY || currentScrollY < 50) {
-                setShowHeader(true);
-            }
-            // Hide header when scrolling down
-            else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-                setShowHeader(false);
-            }
-
-            setLastScrollY(currentScrollY);
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [isMobile, lastScrollY]);
 
     // Online status
     useEffect(() => {
@@ -127,18 +102,6 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
 
             {/* Main Content Wrapper */}
             <div className="flex-1 flex flex-col min-h-screen">
-
-                {/* Mobile Header */}
-                {isMobile && !fullscreen && (
-                    <header
-                        className={`sticky top-0 z-10 bg-[var(--color-bg-card)]/80 backdrop-blur-md border-b border-[var(--color-border)] px-4 py-3 flex justify-between items-center shadow-sm transition-transform duration-300 ${showHeader ? 'translate-y-0' : '-translate-y-full'
-                            }`}
-                    >
-                        <h1 className="text-xl font-bold bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] bg-clip-text text-transparent">
-                            LinguaLearn
-                        </h1>
-                    </header>
-                )}
 
                 {/* Offline Banner */}
                 {!isOnline && (
