@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../services/db';
 import { ArrowRight, Check, Lock, User } from 'lucide-react';
 import type { UserSettings } from '../types';
@@ -103,159 +104,189 @@ const OnboardingPage: React.FC = () => {
                     </div>
                 )}
 
-                {step === 1 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h1 className="text-3xl font-bold text-center">Create Your Account 🔐</h1>
-                        <p className="text-center text-[var(--color-text-muted)]">Choose a username and password to get started</p>
-
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                                    <User className="inline mr-1" size={16} /> Username
-                                </label>
-                                <input
-                                    type="text"
-                                    value={username}
-                                    onChange={(e) => setUsername(e.target.value)}
-                                    placeholder="Choose a username"
-                                    className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
-                                    autoFocus
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                                    <Lock className="inline mr-1" size={16} /> Password
-                                </label>
-                                <input
-                                    type="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="At least 6 characters"
-                                    className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                                    <Lock className="inline mr-1" size={16} /> Confirm Password
-                                </label>
-                                <input
-                                    type="password"
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Re-enter password"
-                                    className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleNextFromUsername}
-                            disabled={!username.trim() || !password || !confirmPassword}
-                            className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                <AnimatePresence mode="wait">
+                    {step === 1 && (
+                        <motion.div
+                            key="step1"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-6"
                         >
-                            Next <ArrowRight size={20} />
-                        </button>
-                    </div>
-                )}
+                            <h1 className="text-3xl font-bold text-center">Create Your Account 🔐</h1>
+                            <p className="text-center text-[var(--color-text-muted)]">Choose a username and password to get started</p>
 
-                {step === 2 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h1 className="text-3xl font-bold text-center">Welcome to LinguaLearn! 👋</h1>
-                        <p className="text-center text-[var(--color-text-muted)]">Let's get to know you. What should we call you?</p>
-                        <input
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Your Name"
-                            className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg text-center"
-                            autoFocus
-                        />
-                        <button
-                            onClick={() => setStep(2)}
-                            disabled={!name.trim()}
-                            className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            Next <ArrowRight size={20} />
-                        </button>
-                    </div>
-                )}
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                                        <User className="inline mr-1" size={16} /> Username
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                        placeholder="Choose a username"
+                                        className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
+                                        autoFocus
+                                    />
+                                </div>
 
-                {step === 2 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h1 className="text-2xl font-bold text-center">Language Goals 🎯</h1>
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                                        <Lock className="inline mr-1" size={16} /> Password
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="At least 6 characters"
+                                        className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
+                                    />
+                                </div>
 
-                        <div className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">I speak...</label>
-                                <select
-                                    value={nativeLang}
-                                    onChange={(e) => setNativeLang(e.target.value)}
-                                    className="w-full p-3 rounded-xl bg-[var(--color-bg)] border-none outline-none"
-                                >
-                                    <option value="Ukrainian">Ukrainian</option>
-                                    <option value="Spanish">Spanish</option>
-                                    <option value="French">French</option>
-                                    <option value="German">German</option>
-                                    <option value="English">English</option>
-                                </select>
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                                        <Lock className="inline mr-1" size={16} /> Confirm Password
+                                    </label>
+                                    <input
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        placeholder="Re-enter password"
+                                        className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">I want to learn...</label>
-                                <select
-                                    value={targetLang}
-                                    onChange={(e) => setTargetLang(e.target.value)}
-                                    className="w-full p-3 rounded-xl bg-[var(--color-bg)] border-none outline-none"
-                                >
-                                    <option value="English">English</option>
-                                    <option value="Spanish">Spanish</option>
-                                    <option value="French">French</option>
-                                    <option value="German">German</option>
-                                    <option value="Ukrainian">Ukrainian</option>
-                                </select>
+                            <button
+                                onClick={handleNextFromUsername}
+                                disabled={!username.trim() || !password || !confirmPassword}
+                                className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                Next <ArrowRight size={20} />
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {step === 2 && (
+                        <motion.div
+                            key="step2"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-6"
+                        >
+                            <h1 className="text-3xl font-bold text-center">Welcome to LinguaLearn! 👋</h1>
+                            <p className="text-center text-[var(--color-text-muted)]">Let's get to know you. What should we call you?</p>
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Your Name"
+                                className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg text-center"
+                                autoFocus
+                            />
+                            <button
+                                onClick={() => setStep(3)}
+                                disabled={!name.trim()}
+                                className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                Next <ArrowRight size={20} />
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {step === 3 && (
+                        <motion.div
+                            key="step3"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-6"
+                        >
+                            <h1 className="text-2xl font-bold text-center">Language Goals 🎯</h1>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">I speak...</label>
+                                    <select
+                                        value={nativeLang}
+                                        onChange={(e) => setNativeLang(e.target.value)}
+                                        className="w-full p-3 rounded-xl bg-[var(--color-bg)] border-none outline-none"
+                                    >
+                                        <option value="Ukrainian">Ukrainian</option>
+                                        <option value="Spanish">Spanish</option>
+                                        <option value="French">French</option>
+                                        <option value="German">German</option>
+                                        <option value="English">English</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-2">I want to learn...</label>
+                                    <select
+                                        value={targetLang}
+                                        onChange={(e) => setTargetLang(e.target.value)}
+                                        className="w-full p-3 rounded-xl bg-[var(--color-bg)] border-none outline-none"
+                                    >
+                                        <option value="English">English</option>
+                                        <option value="Spanish">Spanish</option>
+                                        <option value="French">French</option>
+                                        <option value="German">German</option>
+                                        <option value="Ukrainian">Ukrainian</option>
+                                    </select>
+                                </div>
                             </div>
-                        </div>
 
-                        <button
-                            onClick={() => setStep(4)}
-                            className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all flex items-center justify-center gap-2"
+                            <button
+                                onClick={() => setStep(4)}
+                                className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all flex items-center justify-center gap-2"
+                            >
+                                Next <ArrowRight size={20} />
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {step === 4 && (
+                        <motion.div
+                            key="step4"
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -20 }}
+                            transition={{ duration: 0.3 }}
+                            className="space-y-6"
                         >
-                            Next <ArrowRight size={20} />
-                        </button>
-                    </div>
-                )}
+                            <h1 className="text-2xl font-bold text-center">Current Level 📊</h1>
+                            <p className="text-center text-[var(--color-text-muted)]">How would you describe your current skill?</p>
 
-                {step === 4 && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-                        <h1 className="text-2xl font-bold text-center">Current Level 📊</h1>
-                        <p className="text-center text-[var(--color-text-muted)]">How would you describe your current skill?</p>
+                            <div className="space-y-3">
+                                {(['beginner', 'intermediate', 'advanced'] as const).map((l) => (
+                                    <button
+                                        key={l}
+                                        onClick={() => setLevel(l)}
+                                        className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${level === l
+                                            ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                                            : 'border-transparent bg-[var(--color-bg)] hover:bg-gray-100 dark:hover:bg-gray-800'
+                                            }`}
+                                    >
+                                        <span className="capitalize font-bold">{l}</span>
+                                        {level === l && <Check size={20} />}
+                                    </button>
+                                ))}
+                            </div>
 
-                        <div className="space-y-3">
-                            {(['beginner', 'intermediate', 'advanced'] as const).map((l) => (
-                                <button
-                                    key={l}
-                                    onClick={() => setLevel(l)}
-                                    className={`w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between ${level === l
-                                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-                                        : 'border-transparent bg-[var(--color-bg)] hover:bg-gray-100 dark:hover:bg-gray-800'
-                                        }`}
-                                >
-                                    <span className="capitalize font-bold">{l}</span>
-                                    {level === l && <Check size={20} />}
-                                </button>
-                            ))}
-                        </div>
-
-                        <button
-                            onClick={handleComplete}
-                            className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all flex items-center justify-center gap-2"
-                        >
-                            Get Started! <ArrowRight size={20} />
-                        </button>
-                    </div>
-                )}
+                            <button
+                                onClick={handleComplete}
+                                className="w-full py-4 rounded-xl bg-[var(--color-primary)] text-white font-bold text-lg shadow-lg hover:bg-[var(--color-primary-dark)] transition-all flex items-center justify-center gap-2"
+                            >
+                                Get Started! <ArrowRight size={20} />
+                            </button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
         </div>
     );
