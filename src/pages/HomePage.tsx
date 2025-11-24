@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Book } from 'lucide-react';
 import { useProgress } from '../hooks/useProgress';
 import { db } from '../services/db';
 import StreakCounter from '../components/StreakCounter';
@@ -79,6 +79,22 @@ const HomePage: React.FC = () => {
                     <span className="inline-block bg-white/20 backdrop-blur-sm px-4 py-2 rounded-lg font-bold hover:bg-white/30 transition-colors">
                         Explore Content →
                     </span>
+                </div>
+                {/* Decorative background */}
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+            </Link>
+
+            {/* AI Reading Practice */}
+            <Link
+                to="/reading"
+                className="bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl p-6 text-white shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center gap-4 relative overflow-hidden"
+            >
+                <div className="p-3 bg-white/20 rounded-lg">
+                    <Book size={24} />
+                </div>
+                <div>
+                    <h3 className="font-bold text-lg mb-1">AI Reading Practice</h3>
+                    <p className="text-sm opacity-90">Interactive stories with AI</p>
                 </div>
                 {/* Decorative background */}
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>

@@ -77,8 +77,11 @@ Just provide the story text.`;
         };
 
         return story;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error generating story:', error);
+        if (error.response) {
+            console.error('API Response Error:', error.response);
+        }
         throw new Error('Failed to generate story. Please check your API key and try again.');
     }
 }
@@ -91,7 +94,7 @@ export async function translateText(text: string, fromLanguage: string, toLangua
         throw new Error('Gemini API not configured');
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
 
     const prompt = `Translate this ${fromLanguage} text to ${toLanguage}. Provide ONLY the translation, nothing else:\n\n${text}`;
 
@@ -99,8 +102,11 @@ export async function translateText(text: string, fromLanguage: string, toLangua
         const result = await model.generateContent(prompt);
         const translation = result.response.text().trim();
         return translation;
-    } catch (error) {
+    } catch (error: any) {
         console.error('Error translating text:', error);
+        if (error.response) {
+            console.error('API Response Error:', error.response);
+        }
         throw new Error('Translation failed');
     }
 }

@@ -77,6 +77,7 @@ function App() {
               <Route path="/" element={<Layout><HomePage /></Layout>} />
               <Route path="/dictionary" element={<Layout><DictionaryPage /></Layout>} />
               <Route path="/dictionary/:id" element={<Layout><WordDetailPage /></Layout>} />
+              <Route path="/word/:id" element={<Layout><WordDetailPage /></Layout>} />
               <Route path="/games" element={<Layout><GamesPage /></Layout>} />
               <Route path="/content" element={<Layout><ContentSuggestionsPage /></Layout>} />
               <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />

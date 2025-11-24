@@ -36,6 +36,11 @@ const ReadingPracticePage: React.FC = () => {
     };
 
     const handleGenerateStory = async () => {
+        if (!import.meta.env.VITE_GEMINI_API_KEY) {
+            showToast('Gemini API key not configured in .env file', 'error');
+            return;
+        }
+
         setGenerating(true);
         try {
             const story = await generateStory(targetLanguage, level, topic);

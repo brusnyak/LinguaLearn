@@ -23,7 +23,7 @@ interface LinguaDB extends DBSchema {
 }
 
 const DB_NAME = 'lingua-learn-db';
-const DB_VERSION = 2; // Incremented for users store
+const DB_VERSION = 3; // Incremented for progress store
 
 let dbPromise: Promise<IDBPDatabase<LinguaDB>>;
 
