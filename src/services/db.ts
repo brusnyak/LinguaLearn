@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Word, UserSettings, User } from '../types';
+import type { Word, UserSettings, User, UserProgress } from '../types';
 import { getCurrentUserId } from './auth';
 
 interface LinguaDB extends DBSchema {
@@ -15,6 +15,10 @@ interface LinguaDB extends DBSchema {
     users: {
         key: string;
         value: User;
+    };
+    progress: {
+        key: string;
+        value: UserProgress;
     };
 }
 
@@ -43,6 +47,11 @@ export const initDB = () => {
                 // Users Store (new in v2)
                 if (!db.objectStoreNames.contains('users')) {
                     db.createObjectStore('users', { keyPath: 'id' });
+                }
+
+                // Progress Store (new in v2)
+                if (!db.objectStoreNames.contains('progress')) {
+                    db.createObjectStore('progress');
                 }
             },
         });
@@ -96,5 +105,19 @@ export const db = {
             }
         }
         await tx.done;
-    }
+    },
+
+    async getProgress(): Promise<UserProgress | undefined> {
+        const db = await initDB();
+        const userId = getCurrentUserId();
+        const key = userId ? `progress-${userId}` : 'progress';
+        return db.get('progress', key);
+    },
+
+    async saveProgress(progress: UserProgress): Promise<void> {
+        const db = await initDB();
+        const userId = getCurrentUserId();
+        const key = userId ? `progress-${userId}` : 'progress';
+        await db.put('progress', progress, key);
+    },
 };

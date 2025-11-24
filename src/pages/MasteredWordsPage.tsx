@@ -1,16 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Settings, Star, Calendar } from 'lucide-react';
+import { ArrowLeft, Settings, Star, Calendar, X } from 'lucide-react';
 import { db } from '../services/db';
 import type { Word } from '../types';
+import { useToast } from '../context/ToastContext';
 
 type FilterType = 'today' | 'week' | 'all';
 
 const MasteredWordsPage: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [words, setWords] = useState<Word[]>([]);
     const [filter, setFilter] = useState<FilterType>('today');
     const [dailyGoal, setDailyGoal] = useState(20);
+    const [showGoalModal, setShowGoalModal] = useState(false);
+    const [tempGoal, setTempGoal] = useState(20);
 
     useEffect(() => {
         loadWords();
@@ -59,6 +63,20 @@ const MasteredWordsPage: React.FC = () => {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    const handleSaveGoal = async () => {
+        if (tempGoal < 1 || tempGoal > 100) {
+            showToast('Goal must be between 1 and 100', 'error');
+            return;
+        }
+        const settings = await db.getSettings();
+        if (settings) {
+            await db.saveSettings({ ...settings, dailyGoal: tempGoal });
+            setDailyGoal(tempGoal);
+            setShowGoalModal(false);
+            showToast('Daily goal updated!', 'success');
+        }
+    };
+
     const todayCount = words.filter(w => {
         const wordDate = new Date(w.lastReviewed);
         const today = new Date();
@@ -66,7 +84,7 @@ const MasteredWordsPage: React.FC = () => {
     }).length;
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="space-y-6 pb-20 pt-6">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -85,9 +103,12 @@ const MasteredWordsPage: React.FC = () => {
                     </div>
                 </div>
                 <button
-                    onClick={() => navigate('/settings')}
+                    onClick={() => {
+                        setTempGoal(dailyGoal);
+                        setShowGoalModal(true);
+                    }}
                     className="p-2 hover:bg-[var(--color-bg-card)] rounded-lg transition-colors"
-                    aria-label="Settings"
+                    aria-label="Configure goal"
                 >
                     <Settings size={24} />
                 </button>
@@ -98,8 +119,8 @@ const MasteredWordsPage: React.FC = () => {
                 <button
                     onClick={() => setFilter('today')}
                     className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${filter === 'today'
-                            ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                        ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                         }`}
                 >
                     Today
@@ -107,8 +128,8 @@ const MasteredWordsPage: React.FC = () => {
                 <button
                     onClick={() => setFilter('week')}
                     className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${filter === 'week'
-                            ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                        ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                         }`}
                 >
                     This Week
@@ -116,8 +137,8 @@ const MasteredWordsPage: React.FC = () => {
                 <button
                     onClick={() => setFilter('all')}
                     className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${filter === 'all'
-                            ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                            : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+                        ? 'bg-[var(--color-primary)] text-white shadow-sm'
+                        : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
                         }`}
                 >
                     All Time
@@ -167,6 +188,55 @@ const MasteredWordsPage: React.FC = () => {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Goal Configuration Modal */}
+            {showGoalModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                        onClick={() => setShowGoalModal(false)}
+                    />
+                    <div className="relative max-w-md w-full bg-[var(--color-bg-card)] rounded-2xl p-6 shadow-xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-xl font-bold">Daily Goal</h2>
+                            <button
+                                onClick={() => setShowGoalModal(false)}
+                                className="p-2 hover:bg-[var(--color-bg)] rounded-lg transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <p className="text-sm text-[var(--color-text-muted)] mb-4">
+                            Set how many words you want to master each day
+                        </p>
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium mb-2">Words per day</label>
+                            <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={tempGoal}
+                                onChange={(e) => setTempGoal(Number(e.target.value))}
+                                className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none"
+                            />
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowGoalModal(false)}
+                                className="flex-1 px-4 py-3 rounded-lg border border-[var(--color-border)] font-bold hover:bg-[var(--color-bg)] transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveGoal}
+                                className="flex-1 px-4 py-3 rounded-lg bg-[var(--color-primary)] text-white font-bold hover:bg-[var(--color-primary-dark)] transition-colors"
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

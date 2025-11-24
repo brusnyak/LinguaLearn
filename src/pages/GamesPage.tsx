@@ -1,9 +1,21 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sword, Layers, Trophy } from 'lucide-react';
+import { getXPInfo } from '../services/xp';
 
 const GamesPage: React.FC = () => {
     const navigate = useNavigate();
+    const [level, setLevel] = useState(1);
+    const [title, setTitle] = useState('Amateur');
+
+    useEffect(() => {
+        const loadXP = async () => {
+            const xpInfo = await getXPInfo();
+            setLevel(xpInfo.level);
+            setTitle(xpInfo.title);
+        };
+        loadXP();
+    }, []);
 
     const games = [
         {
@@ -33,12 +45,15 @@ const GamesPage: React.FC = () => {
     ];
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="space-y-6 pb-20 pt-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">Game Hub</h2>
-                <div className="flex items-center text-[var(--color-primary)] font-bold">
-                    <Trophy className="mr-2" />
-                    <span>Lvl 1</span>
+                <div className="flex flex-col items-end">
+                    <div className="flex items-center text-[var(--color-primary)] font-bold">
+                        <Trophy className="mr-2" />
+                        <span>Level {level}</span>
+                    </div>
+                    <span className="text-xs text-[var(--color-text-muted)] mt-1">{title}</span>
                 </div>
             </div>
 

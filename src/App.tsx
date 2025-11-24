@@ -13,6 +13,8 @@ import SettingsPage from './pages/SettingsPage';
 import OnboardingPage from './pages/OnboardingPage';
 import LoginPage from './pages/LoginPage';
 import MasteredWordsPage from './pages/MasteredWordsPage';
+import ReadingPracticePage from './pages/ReadingPracticePage';
+import StoryReaderPage from './pages/StoryReaderPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
@@ -79,6 +81,8 @@ function App() {
               <Route path="/content" element={<Layout><ContentSuggestionsPage /></Layout>} />
               <Route path="/settings" element={<Layout><SettingsPage /></Layout>} />
               <Route path="/mastered" element={<Layout><MasteredWordsPage /></Layout>} />
+              <Route path="/reading" element={<Layout><ReadingPracticePage /></Layout>} />
+              <Route path="/reading/:storyId" element={<Layout><StoryReaderPage /></Layout>} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />

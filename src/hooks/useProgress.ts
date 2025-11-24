@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { db } from '../services/db';
-import type { UserSettings, UserProgress } from '../types';
+import type { UserProgress } from '../types';
 
 const DEFAULT_PROGRESS: UserProgress = {
     currentStreak: 0,
     lastStudyDate: '',
-    studyHistory: []
+    studyHistory: [],
+    xp: 0,
+    level: 1,
+    completedDungeonLevels: [],
 };
 
 export const useProgress = () => {
@@ -14,9 +17,9 @@ export const useProgress = () => {
 
     const loadProgress = useCallback(async () => {
         try {
-            const settings = await db.getSettings();
-            if (settings?.progress) {
-                setProgress(settings.progress);
+            const progressData = await db.getProgress();
+            if (progressData) {
+                setProgress(progressData);
             }
         } catch (error) {
             console.error('Failed to load progress:', error);
@@ -31,9 +34,7 @@ export const useProgress = () => {
 
     const markActivity = useCallback(async () => {
         const today = new Date().toISOString().split('T')[0];
-        const settings = await db.getSettings();
-
-        let currentProgress = settings?.progress || DEFAULT_PROGRESS;
+        const currentProgress = await db.getProgress() || DEFAULT_PROGRESS;
         const lastDate = currentProgress.lastStudyDate;
 
         // If already studied today, do nothing
@@ -62,17 +63,16 @@ export const useProgress = () => {
         }
 
         const newProgress: UserProgress = {
+            ...currentProgress,
             currentStreak: newStreak,
             lastStudyDate: today,
-            studyHistory: [...currentProgress.studyHistory, today]
+            studyHistory: [...currentProgress.studyHistory, today],
+            xp: currentProgress.xp || 0,
+            level: currentProgress.level || 1,
+            completedDungeonLevels: currentProgress.completedDungeonLevels || [],
         };
 
-        const newSettings: UserSettings = {
-            ...(settings || { theme: 'light', dailyGoal: 5 }), // Defaults if missing
-            progress: newProgress
-        } as UserSettings;
-
-        await db.saveSettings(newSettings);
+        await db.saveProgress(newProgress);
         setProgress(newProgress);
     }, []);
 

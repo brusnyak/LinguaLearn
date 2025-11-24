@@ -1,8 +1,20 @@
-1. in the content section, there is no proper padding below, so half of the last 2 cards are not visible
-2. there is no proper get back arrow in the content section, but only header and navigation below
-3. 'start review' and 'watch & learn' being in one box are blended in, user don't destinguish content suggestion as another feature. so we better mavo it to a separate container within home tab
-4. daily progress is not properly implemented, same for activity history got to check them both:
-a. we don't have a step or an option to configure goal there
-b. it doesn't work properly cause i've got only 1 word in dictionary but it shows 5/20. plus it's unclear what it shows, all the words, words mastered, no logic there.
-5. in the games, there is no proper padding, scrolling, not auto adjustable containers to fill the screen. + in dungeon game, users shouldn't be able to select level, shey should complete each level of a dungeon, get some exp, advance in level, recieve some name [amatuer, word wizard, etc].
-6. actually the header doesn't have no purpose, only takes up space, so we better remove it, only have it in settings, somwhere down below as a name. and instead of it, have some nice padding.
+
+a. dungeon level modal when you play, doesn't properly strecth to the bottom + it doesn't have scrolling within modal, so when the screen is too short, it's not scrollable, and you can't see the remaining words
+b. there is some padding issue between containers in home and dictionary pages, happened after we added top padding, please check
+c. new warning with update:
+[{
+	"resource": "/Users/yegor/.gemini/antigravity/scratch/lingua-learn/src/hooks/useProgress.ts",
+	"owner": "typescript",
+	"code": "6196",
+	"severity": 4,
+	"message": "'UserSettings' is declared but never used.",
+	"source": "ts",
+	"startLineNumber": 3,
+	"startColumn": 15,
+	"endLineNumber": 3,
+	"endColumn": 27,
+	"tags": [
+		1
+	],
+	"origin": "extHost1"
+}]

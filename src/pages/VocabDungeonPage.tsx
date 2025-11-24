@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, Shield } from 'lucide-react';
+import { ArrowLeft, Heart, Shield, Trophy, Skull } from 'lucide-react';
 import { db } from '../services/db';
 import type { Word } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
+import { awardXP, XP_REWARDS } from '../services/xp';
+import { useToast } from '../context/ToastContext';
 
 const VocabDungeonPage: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [words, setWords] = useState<Word[]>([]);
     const [currentWord, setCurrentWord] = useState<Word | null>(null);
     const [options, setOptions] = useState<string[]>([]);
@@ -14,47 +17,53 @@ const VocabDungeonPage: React.FC = () => {
     const [monsterHP, setMonsterHP] = useState(100);
     const [maxMonsterHP, setMaxMonsterHP] = useState(100);
     const [currentLevel, setCurrentLevel] = useState(1);
-    const [unlockedLevel, setUnlockedLevel] = useState(1); // Track highest unlocked level
-    const [gameState, setGameState] = useState<'menu' | 'loading' | 'playing' | 'won' | 'lost'>('menu');
+    const [gameState, setGameState] = useState<'entrance' | 'playing' | 'won' | 'lost'>('entrance');
     const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
+    const [hitEffect, setHitEffect] = useState<'none' | 'damage' | 'heal'>('none');
 
     useEffect(() => {
         loadProgress();
     }, []);
 
+    useEffect(() => {
+        if (hitEffect !== 'none') {
+            const timer = setTimeout(() => setHitEffect('none'), 500);
+            return () => clearTimeout(timer);
+        }
+    }, [hitEffect]);
+
     const loadProgress = async () => {
-        // Load unlocked level from settings
-        // For now, we'll just allow all levels. Can add level unlock logic later.
-        setUnlockedLevel(5);
+        const progress = await db.getProgress();
+        const completedLevels = progress?.completedDungeonLevels || [];
+        // Start at next uncompleted level
+        const nextLevel = completedLevels.length + 1;
+        setCurrentLevel(Math.min(nextLevel, 10)); // Max 10 levels
     };
 
-    const startGame = async (level: number) => {
+    const startGame = async () => {
         try {
             const allWords = await db.getWords();
             if (allWords.length < 4) {
-                alert("You need at least 4 words in your dictionary to play!");
+                showToast('You need at least 4 words in your dictionary!', 'error');
                 navigate('/dictionary');
                 return;
             }
 
-            setCurrentLevel(level);
-            const bossHP = 100 + (level - 1) * 50; // Level 1: 100, Level 5: 300
+            const bossHP = 100 + (currentLevel - 1) * 50;
             setMaxMonsterHP(bossHP);
             setMonsterHP(bossHP);
             setPlayerHP(100);
 
-            // Filter words based on level
+            //Filter words based on level difficulty
             let filteredWords = allWords;
-            if (level <= 2) {
+            if (currentLevel <= 3) {
                 filteredWords = allWords.filter(w => w.masteryLevel <= 2);
-            } else if (level <= 4) {
-                filteredWords = allWords.filter(w => w.masteryLevel <= 4 && w.masteryLevel >= 1);
+            } else if (currentLevel <= 6) {
+                filteredWords = allWords.filter(w => w.masteryLevel >= 1 && w.masteryLevel <= 4);
             } else {
-                // Level 5: prioritize harder words
                 filteredWords = allWords.filter(w => w.masteryLevel >= 3);
             }
 
-            // Fallback to all words if filtered list is too small
             if (filteredWords.length < 4) {
                 filteredWords = allWords;
             }
@@ -63,7 +72,7 @@ const VocabDungeonPage: React.FC = () => {
             setGameState('playing');
             nextTurn(filteredWords);
         } catch (error) {
-            console.error("Failed to start game", error);
+            console.error('Failed to start game', error);
         }
     };
 
@@ -71,7 +80,6 @@ const VocabDungeonPage: React.FC = () => {
         const randomWord = currentWords[Math.floor(Math.random() * currentWords.length)];
         setCurrentWord(randomWord);
 
-        // Generate options (1 correct, 3 wrong)
         const wrongOptions = currentWords
             .filter(w => w.id !== randomWord.id)
             .sort(() => 0.5 - Math.random())
@@ -83,115 +91,197 @@ const VocabDungeonPage: React.FC = () => {
         setFeedback('none');
     };
 
-    const [isShaking, setIsShaking] = useState(false);
-    const [hitEffect, setHitEffect] = useState<'none' | 'damage' | 'heal'>('none');
-
-    useEffect(() => {
-        if (hitEffect !== 'none') {
-            const timer = setTimeout(() => setHitEffect('none'), 500);
-            return () => clearTimeout(timer);
-        }
-    }, [hitEffect]);
-
-    const handleAttack = (selectedOption: string) => {
+    const handleAttack = async (selectedOption: string) => {
         if (!currentWord || feedback !== 'none') return;
 
         if (selectedOption === currentWord.translation) {
             // Correct
             setFeedback('correct');
-            setHitEffect('damage');
-            setIsShaking(true);
-            setTimeout(() => setIsShaking(false), 500);
-
-            const damage = 20; // Fixed damage for now
+            const damage = 25;
             setMonsterHP(prev => {
-                const newHP = prev - damage;
-                if (newHP <= 0) {
-                    setTimeout(() => handleWin(), 1000);
-                    return 0;
+                const newHP = Math.max(0, prev - damage);
+                if (newHP === 0) {
+                    setTimeout(() => handleWin(), 800);
+                } else {
+                    setTimeout(() => nextTurn(words), 1000);
                 }
                 return newHP;
             });
-            if (monsterHP > 20) {
-                setTimeout(() => nextTurn(words), 1000);
-            }
         } else {
             // Wrong
             setFeedback('wrong');
-            setHitEffect('heal'); // Monster heals/player takes damage visual
-
-            const damage = 15;
+            setHitEffect('damage');
+            const damage = 20;
             setPlayerHP(prev => {
-                const newHP = prev - damage;
-                if (newHP <= 0) {
-                    setTimeout(() => setGameState('lost'), 1000);
-                    return 0;
+                const newHP = Math.max(0, prev - damage);
+                if (newHP === 0) {
+                    setTimeout(() => setGameState('lost'), 800);
+                } else {
+                    setTimeout(() => nextTurn(words), 1000);
                 }
                 return newHP;
             });
-            if (playerHP > 15) {
-                setTimeout(() => nextTurn(words), 1000);
-            }
         }
     };
 
-    const handleWin = () => {
+    const handleWin = async () => {
         setGameState('won');
-        // Logic to increase mastery level of words could go here
+
+        // Award XP
+        await awardXP(XP_REWARDS.DUNGEON_BOSS_DEFEATED);
+
+        // Save completed level
+        const progress = await db.getProgress();
+        if (progress) {
+            const completedLevels = progress.completedDungeonLevels || [];
+            if (!completedLevels.includes(currentLevel)) {
+                completedLevels.push(currentLevel);
+                await db.saveProgress({ ...progress, completedDungeonLevels: completedLevels });
+            }
+        }
+
+        showToast(`+${XP_REWARDS.DUNGEON_BOSS_DEFEATED} XP!`, 'success');
     };
 
-    if (gameState === 'loading') return <div className="p-10 text-center">Entering Dungeon...</div>;
+    const handleContinue = () => {
+        setCurrentLevel(prev => prev + 1);
+        setGameState('entrance');
+    };
 
-    // Level Selection Menu
-    if (gameState === 'menu') {
+    // Entrance Screen
+    if (gameState === 'entrance') {
         return (
-            <div className="max-w-2xl mx-auto p-6">
-                <div className="flex items-center justify-between mb-6">
-                    <button onClick={() => navigate('/games')} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
-                        <ArrowLeft />
-                    </button>
-                    <h2 className="text-2xl font-bold">Select Level</h2>
-                    <div className="w-10"></div>
-                </div>
+            <div className="max-w-2xl mx-auto px-6 py-8 min-h-screen flex flex-col">
+                <button onClick={() => navigate('/games')} className="p-2 rounded-full hover:bg-[var(--color-bg-card)] transition-colors self-start mb-6">
+                    <ArrowLeft />
+                </button>
 
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {[1, 2, 3, 4, 5].map(lvl => {
-                        const bossHP = 100 + (lvl - 1) * 50;
-                        const isLocked = lvl > unlockedLevel;
-                        return (
-                            <button
-                                key={lvl}
-                                onClick={() => !isLocked && startGame(lvl)}
-                                disabled={isLocked}
-                                className={`p-6 rounded-xl border-2 transition-all ${isLocked
-                                    ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                                    : 'bg-[var(--color-bg-card)] border-[var(--color-primary)] hover:shadow-lg hover:scale-105'
-                                    }`}
-                            >
-                                <div className="text-3xl font-bold mb-2">{lvl}</div>
-                                <div className="text-sm text-[var(--color-text-muted)] mb-1">Boss HP: {bossHP}</div>
-                                {isLocked && <div className="text-xs">🔒 Locked</div>}
-                            </button>
-                        );
-                    })}
+                <div className="flex-1 flex flex-col items-center justify-center text-center space-y-8">
+                    {/* Dungeon Entrance Theme */}
+                    <div className="relative">
+                        <div className="text-8xl mb-4">🏰</div>
+                        <div className="absolute -top-2 -right-2 bg-[var(--color-primary)] text-white rounded-full w-12 h-12 flex items-center justify-center font-bold text-lg">
+                            {currentLevel}
+                        </div>
+                    </div>
+
+                    <div>
+                        <h1 className="text-4xl font-bold mb-2">Vocabulary Dungeon</h1>
+                        <p className="text-xl text-[var(--color-text-muted)] mb-1">Level {currentLevel}</p>
+                        <p className="text-sm text-[var(--color-text-muted)]">
+                            Boss HP: {100 + (currentLevel - 1) * 50}
+                        </p>
+                    </div>
+
+                    <div className="bg-[var(--color-bg-card)] rounded-xl p-6 max-w-md">
+                        <h3 className="font-bold mb-3 flex items-center gap-2">
+                            <Skull size={20} className="text-red-500" />
+                            Challenge
+                        </h3>
+                        <p className="text-sm text-[var(--color-text-muted)]">
+                            Defeat the Level {currentLevel} boss by correctly translating words. Each wrong answer damages you!
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={startGame}
+                        className="px-8 py-4 bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] text-white font-bold text-lg rounded-xl hover:scale-105 transition-transform shadow-lg"
+                    >
+                        Enter Dungeon →
+                    </button>
                 </div>
             </div>
         );
     }
 
+    // Victory Screen
+    if (gameState === 'won') {
+        return (
+            <div className="max-w-md mx-auto px-6 py-8 min-h-screen flex flex-col items-center justify-center text-center">
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-8xl mb-4"
+                >
+                    🏆
+                </motion.div>
+                <h2 className="text-3xl font-bold mb-2">Victory!</h2>
+                <p className="text-[var(--color-text-muted)] mb-6">
+                    You defeated the Level {currentLevel} boss!
+                </p>
+                <div className="bg-[var(--color-bg-card)] rounded-xl p-6 mb-8 w-full">
+                    <div className="flex items-center justify-between mb-2">
+                        <span>XP Earned</span>
+                        <span className="font-bold text-[var(--color-primary)]">+{XP_REWARDS.DUNGEON_BOSS_DEFEATED}</span>
+                    </div>
+                </div>
+                <div className="flex gap-3 w-full">
+                    <button
+                        onClick={() => navigate('/games')}
+                        className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg font-bold hover:bg-[var(--color-bg-card)] transition-colors"
+                    >
+                        Exit
+                    </button>
+                    {currentLevel < 10 && (
+                        <button
+                            onClick={handleContinue}
+                            className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors"
+                        >
+                            Next Level →
+                        </button>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
+    // Defeat Screen
+    if (gameState === 'lost') {
+        return (
+            <div className="max-w-md mx-auto px-6 py-8 min-h-screen flex flex-col items-center justify-center text-center">
+                <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    className="text-8xl mb-4"
+                >
+                    💀
+                </motion.div>
+                <h2 className="text-3xl font-bold mb-2">Defeated!</h2>
+                <p className="text-[var(--color-text-muted)] mb-8">
+                    The Level {currentLevel} boss proved too strong. Try again!
+                </p>
+                <div className="flex gap-3 w-full">
+                    <button
+                        onClick={() => navigate('/games')}
+                        className="flex-1 px-6 py-3 border border-[var(--color-border)] rounded-lg font-bold hover:bg-[var(--color-bg-card)] transition-colors"
+                    >
+                        Exit
+                    </button>
+                    <button
+                        onClick={() => setGameState('entrance')}
+                        className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors"
+                    >
+                        Try Again
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Battle Screen
     return (
-        <div className="max-w-md mx-auto h-[calc(100vh-100px)] flex flex-col">
+        <div className="max-w-md mx-auto h-screen flex flex-col p-4">
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
-                <button onClick={() => setGameState('menu')} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
+                <button onClick={() => setGameState('entrance')} className="p-2 rounded-full hover:bg-[var(--color-bg-card)]">
                     <ArrowLeft />
                 </button>
-                <div className="font-bold text-lg">Dungeon Level {currentLevel}</div>
+                <div className="font-bold text-lg">Level {currentLevel}</div>
                 <div className="w-8"></div>
             </div>
 
-            {/* Battle Scene */}
-            <div className="flex-1 bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl shadow-lg p-6 flex flex-col justify-between relative overflow-hidden border-2 border-gray-700">
+            {/* Battle Scene - Scrollable */}
+            <div className="flex-1 bg-gradient-to-b from-gray-800 to-gray-900 rounded-2xl shadow-lg p-6 flex flex-col justify-between relative overflow-hidden border-2 border-gray-700 max-h-[calc(100vh-120px)]">
 
                 {/* Background Pattern */}
                 <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '24px 24px' }}></div>
@@ -206,96 +296,89 @@ const VocabDungeonPage: React.FC = () => {
                     )}
                 </AnimatePresence>
 
-                {/* Monster HP Bar */}
-                <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                        <Shield className="text-red-500" size={24} />
-                        <div className="flex-1">
-                            <div className="bg-gray-700 rounded-full h-4 overflow-hidden border border-gray-600">
-                                <motion.div
-                                    className="h-full bg-gradient-to-r from-red-600 to-red-400"
-                                    style={{ width: `${(monsterHP / maxMonsterHP) * 100}%` }}
-                                    initial={{ width: '100%' }}
-                                    animate={{ width: `${(monsterHP / maxMonsterHP) * 100}%` }}
-                                />
+                {/* Scrollable Content */}
+                <div className="flex-1 flex flex-col overflow-y-auto">
+                    {/* Monster HP Bar */}
+                    <div className="space-y-3 mb-6">
+                        <div className="flex items-center gap-3">
+                            <Shield className="text-red-500 flex-shrink-0" size={24} />
+                            <div className="flex-1">
+                                <div className="bg-gray-700 rounded-full h-4 overflow-hidden border border-gray-600">
+                                    <motion.div
+                                        className="h-full bg-gradient-to-r from-red-600 to-red-400"
+                                        style={{ width: `${(monsterHP / maxMonsterHP) * 100}%` }}
+                                        animate={{ width: `${(monsterHP / maxMonsterHP) * 100}%` }}
+                                    />
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">Monster: {monsterHP}/{maxMonsterHP}</div>
                             </div>
-                            <div className="text-xs text-gray-400 mt-1">{monsterHP} / {maxMonsterHP} HP</div>
                         </div>
                     </div>
-                    <motion.div
-                        className="text-8xl mb-6 filter drop-shadow-2xl"
-                        animate={isShaking ? { x: [-10, 10, -10, 10, 0], color: ['#fff', '#f00', '#fff'] } : { y: [0, -10, 0] }}
-                        transition={isShaking ? { duration: 0.4 } : { repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                    >
-                        👾
-                    </motion.div>
 
-                    <div className="text-3xl font-bold text-center mb-2 text-white drop-shadow-md">{currentWord?.term}</div>
-                    <div className="text-sm text-gray-400">Translate to attack!</div>
-                </div>
-
-                {/* Player Stats */}
-                <div className="flex justify-between items-center px-4 py-3 bg-gray-800/80 backdrop-blur rounded-xl mb-4 border border-gray-700">
-                    <div className="flex items-center text-red-400 font-bold text-lg">
-                        <Heart className="mr-2" size={20} fill="currentColor" /> {playerHP}
-                    </div>
-                    <div className="flex items-center text-blue-400 font-bold text-lg">
-                        <Shield className="mr-2" size={20} fill="currentColor" /> 10
-                    </div>
-                </div>
-
-                {/* Options */}
-                <div className="grid grid-cols-1 gap-3 relative z-10">
-                    {options.map((option, idx) => (
-                        <button
-                            key={idx}
-                            onClick={() => handleAttack(option)}
-                            disabled={feedback !== 'none'}
-                            className={`p-4 rounded-xl font-bold text-lg transition-all transform active:scale-95 shadow-lg
-                ${feedback === 'none' ? 'bg-white text-gray-900 hover:bg-gray-100' : ''}
-                ${feedback === 'correct' && option === currentWord?.translation ? 'bg-green-500 text-white scale-105 ring-4 ring-green-300' : ''}
-                ${feedback === 'wrong' && option === currentWord?.translation ? 'bg-green-500 text-white opacity-70' : ''}
-                ${feedback === 'wrong' && option !== currentWord?.translation ? 'bg-red-500 text-white shake' : ''}
-              `}
-                        >
-                            {option}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Overlays */}
-                <AnimatePresence>
-                    {gameState === 'won' && (
+                    {/* Monster */}
+                    <div className="flex-1 flex items-center justify-center mb-6">
                         <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                            className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
+                            className="text-8xl"
+                            animate={{ scale: monsterHP === 0 ? 0 : 1 }}
                         >
-                            <Trophy size={80} className="text-yellow-400 mb-6 drop-shadow-glow" />
-                            <h2 className="text-4xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">Victory!</h2>
-                            <p className="mb-8 text-gray-300 text-lg">You defeated the monster!</p>
-                            <button onClick={() => setGameState('menu')} className="btn btn-primary text-lg px-8 py-3 shadow-xl shadow-purple-500/30">Back to Levels</button>
+                            👹
                         </motion.div>
-                    )}
-                    {gameState === 'lost' && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-                            className="absolute inset-0 bg-black/90 flex flex-col items-center justify-center text-white z-50 backdrop-blur-sm"
-                        >
-                            <div className="text-8xl mb-6">💀</div>
-                            <h2 className="text-4xl font-bold mb-8 text-red-500">Defeated</h2>
-                            <button onClick={() => startGame(currentLevel)} className="btn btn-primary text-lg px-8 py-3">Try Again</button>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
+                    </div>
 
+                    {/* Word Display */}
+                    {currentWord && (
+                        <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 mb-6">
+                            <div className="text-center text-3xl font-bold text-white mb-2">
+                                {currentWord.term}
+                            </div>
+                            {currentWord.phonetic && (
+                                <div className="text-center text-gray-400 text-sm italic">
+                                    {currentWord.phonetic}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Options - Scrollable area */}
+                    <div className="space-y-3 mb-6">
+                        {options.map((option, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => handleAttack(option)}
+                                disabled={feedback !== 'none'}
+                                className={`w-full p-4 rounded-lg font-bold text-lg transition-all border-2 ${feedback === 'none'
+                                        ? 'bg-gray-700 border-gray-600 hover:bg-gray-600 hover:scale-105'
+                                        : feedback === 'correct' && option === currentWord?.translation
+                                            ? 'bg-green-500 border-green-400 text-white'
+                                            : feedback === 'wrong' && option !== currentWord?.translation
+                                                ? 'bg-gray-700 border-gray-600 opacity-50'
+                                                : 'bg-red-500 border-red-400 text-white'
+                                    }`}
+                            >
+                                {option}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Player HP Bar */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                            <Heart className="text-green-500 flex-shrink-0" size={24} />
+                            <div className="flex-1">
+                                <div className="bg-gray-700 rounded-full h-4 overflow-hidden border border-gray-600">
+                                    <motion.div
+                                        className="h-full bg-gradient-to-r from-green-600 to-green-400"
+                                        animate={{ width: `${playerHP}%` }}
+                                    />
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">Your HP: {playerHP}/100</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
 };
-
-// Helper component for Trophy icon since it wasn't imported
-const Trophy = ({ size, className }: { size: number, className?: string }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>
-);
 
 export default VocabDungeonPage;

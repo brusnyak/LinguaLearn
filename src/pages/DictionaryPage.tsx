@@ -43,7 +43,7 @@ const DictionaryPage: React.FC = () => {
     const sortedLetters = Object.keys(groupedWords).sort();
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20 pt-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">Dictionary</h2>
                 <button

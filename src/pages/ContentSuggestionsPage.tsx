@@ -57,7 +57,7 @@ const ContentSuggestionsPage: React.FC = () => {
     };
 
     return (
-        <div className="space-y-6 pb-20">
+        <div className="space-y-6 pb-20 pt-6">
             {/* Header with Back Button */}
             <div className="flex items-center gap-4">
                 <button

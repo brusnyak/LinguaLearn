@@ -47,17 +47,18 @@ export interface UserProgress {
     currentStreak: number;
     lastStudyDate: string; // ISO Date string YYYY-MM-DD
     studyHistory: string[]; // Array of ISO Date strings
+    xp: number;                    // NEW: Total XP earned
+    level: number;                 // NEW: Current level (calculated from XP)
+    completedDungeonLevels: number[]; // NEW: Array of completed dungeon level IDs
 }
 
 export interface UserSettings {
     userId?: string;
-    theme: 'light' | 'dark';
-    dailyGoal: number;
-    progress: UserProgress;
-    soundEnabled?: boolean;
-    notificationsEnabled?: boolean;
-    notificationTime?: string; // HH:mm format
     profile?: UserProfile;
+    theme: 'light' | 'dark' | 'system';
+    notificationsEnabled: boolean;
+    notificationTime: string;
+    dailyGoal: number;  // NEW: Daily mastered words goal
 }
 
 export type GameType = 'flashcard' | 'dungeon' | 'match';
