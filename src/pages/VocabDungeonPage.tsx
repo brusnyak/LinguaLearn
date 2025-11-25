@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Heart, Shield, Trophy, Skull } from 'lucide-react';
+import { Shield, Heart, Skull, ArrowLeft } from 'lucide-react';
 import { db } from '../services/db';
 import type { Word } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -140,7 +140,7 @@ const VocabDungeonPage: React.FC = () => {
             }
         }
 
-        showToast(`+${XP_REWARDS.DUNGEON_BOSS_DEFEATED} XP!`, 'success');
+        showToast(`+ ${XP_REWARDS.DUNGEON_BOSS_DEFEATED} XP!`, 'success');
     };
 
     const handleContinue = () => {
@@ -347,12 +347,12 @@ const VocabDungeonPage: React.FC = () => {
                                 onClick={() => handleAttack(option)}
                                 disabled={feedback !== 'none'}
                                 className={`w-full p-4 rounded-lg font-bold text-lg transition-all border-2 ${feedback === 'none'
-                                        ? 'bg-gray-700 border-gray-600 hover:bg-gray-600 hover:scale-105'
-                                        : feedback === 'correct' && option === currentWord?.translation
-                                            ? 'bg-green-500 border-green-400 text-white'
-                                            : feedback === 'wrong' && option !== currentWord?.translation
-                                                ? 'bg-gray-700 border-gray-600 opacity-50'
-                                                : 'bg-red-500 border-red-400 text-white'
+                                    ? 'bg-gray-700 border-gray-600 hover:bg-gray-600 hover:scale-105'
+                                    : feedback === 'correct' && option === currentWord?.translation
+                                        ? 'bg-green-500 border-green-400 text-white'
+                                        : feedback === 'wrong' && option !== currentWord?.translation
+                                            ? 'bg-gray-700 border-gray-600 opacity-50'
+                                            : 'bg-red-500 border-red-400 text-white'
                                     }`}
                             >
                                 {option}
