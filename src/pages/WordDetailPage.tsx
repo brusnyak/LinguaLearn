@@ -27,6 +27,7 @@ const WordDetailPage: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [targetLang, setTargetLang] = useState('en');
     const [nativeLang, setNativeLang] = useState('uk');
+    const [association, setAssociation] = useState('');
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -71,8 +72,10 @@ const WordDetailPage: React.FC = () => {
             if (word) {
                 setTerm(word.term);
                 setTranslation(word.translation);
+                setTranslation(word.translation);
                 setCategory(word.category);
                 setType(word.type || 'word');
+                setAssociation(word.association || '');
             }
         } catch (error) {
             console.error('Failed to load word:', error);
@@ -125,6 +128,7 @@ const WordDetailPage: React.FC = () => {
                 lastReviewed: 0,
                 timesCorrect: 0,
                 isMastered: false,
+                association,
                 createdAt: Date.now(),
             };
 
@@ -252,6 +256,19 @@ const WordDetailPage: React.FC = () => {
                             <Volume2 size={20} />
                         </button>
                     </div>
+                </div>
+
+                {/* Association Input */}
+                <div className="space-y-2">
+                    <label className="block text-sm font-medium text-[var(--color-text-muted)]">
+                        Association / Mnemonic (Optional)
+                    </label>
+                    <textarea
+                        value={association}
+                        onChange={(e) => setAssociation(e.target.value)}
+                        placeholder="e.g., 'Gato' sounds like 'Gate' - imagine a cat sitting on a gate."
+                        className="w-full p-3 rounded-lg bg-[var(--color-bg)] border-none focus:ring-2 focus:ring-[var(--color-primary)] outline-none min-h-[80px]"
+                    />
                 </div>
 
                 {/* Category Select */}

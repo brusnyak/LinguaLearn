@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sword, Layers, Trophy } from 'lucide-react';
+import { Sword, Layers, Trophy, Puzzle } from 'lucide-react';
 import { getXPInfo } from '../services/xp';
 
 const GamesPage: React.FC = () => {
@@ -41,6 +41,14 @@ const GamesPage: React.FC = () => {
             icon: Trophy,
             color: 'from-green-400 to-teal-500',
             path: '/games/word-match'
+        },
+        {
+            id: 'word-builder',
+            title: 'Word Builder',
+            description: 'Reassemble scrambled words. Use visual associations to help you!',
+            icon: Puzzle,
+            color: 'from-blue-400 to-cyan-500',
+            path: '/games/word-builder'
         }
     ];
 

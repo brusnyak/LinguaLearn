@@ -31,8 +31,9 @@ export interface Word {
     type?: 'word' | 'phrase'; // Optional for backward compatibility
     masteryLevel: number; // 0-5
     lastReviewed: number; // timestamp
-    timesCorrect: number; // consecutive correct answers
-    isMastered: boolean; // 2x correct = mastered
+    timesCorrect?: number; // consecutive correct answers
+    isMastered?: boolean; // 2x correct = mastered
+    association?: string; // NEW: Mnemonic or association phrase
     createdAt: number;
 }
 
