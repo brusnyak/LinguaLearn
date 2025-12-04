@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Lightbulb, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb } from 'lucide-react';
 import { db } from '../services/db';
 import type { Word } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -96,10 +96,8 @@ const WordBuilderPage: React.FC = () => {
                 nextRound();
             }, 1500);
         } else {
-            // Wrong - shake effect (handled by UI state if needed, or just sound)
+            // Wrong - just play error sound, let user fix it
             play('error');
-            // Auto-reset after delay? Or let user fix it?
-            // Let's let user fix it by tapping letters back
         }
     };
 
@@ -135,7 +133,14 @@ const WordBuilderPage: React.FC = () => {
                 <button onClick={() => navigate('/games')} className="p-2 rounded-full hover:bg-[var(--color-bg-card)]">
                     <ArrowLeft />
                 </button>
-                <div className="font-bold text-lg">Word Builder</div>
+                <div className="font-bold text-lg">
+                    Word Builder
+                    {currentWord && (
+                        <span className="ml-2 text-sm text-[var(--color-text-muted)]">
+                            {words.findIndex(w => w.id === currentWord.id) + 1}/{words.length}
+                        </span>
+                    )}
+                </div>
                 <button 
                     onClick={() => setShowHint(!showHint)} 
                     className={`p-2 rounded-full transition-colors ${showHint ? 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/20' : 'text-gray-400'}`}
@@ -146,26 +151,29 @@ const WordBuilderPage: React.FC = () => {
 
             {currentWord && (
                 <div className="flex-1 flex flex-col items-center space-y-8">
-                    {/* Visual / Association Area */}
-                    <div className="w-full bg-[var(--color-bg-card)] rounded-2xl p-6 flex flex-col items-center justify-center min-h-[200px] shadow-sm relative overflow-hidden">
-                        <div className="text-center space-y-4 z-10">
-                            <h3 className="text-2xl font-bold text-[var(--color-primary)]">{currentWord.translation}</h3>
+                    {/* Word Display Area */}
+                    <div className="w-full bg-[var(--color-bg-card)] rounded-2xl p-6 flex flex-col items-center justify-center min-h-[200px] shadow-sm">
+                        <div className="text-center space-y-4">
+                            <h3 className="text-3xl font-bold text-[var(--color-primary)]">{currentWord.translation}</h3>
+                            <p className="text-sm text-[var(--color-text-muted)]">Build the English word from the letters below</p>
                             
-                            {/* Association Hint */}
-                            {showHint && currentWord.association && (
+                            {/* English Word Hint */}
+                            {showHint && (
                                 <motion.div 
                                     initial={{ opacity: 0, y: 10 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-sm text-yellow-800 dark:text-yellow-200"
+                                    className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg text-sm"
                                 >
-                                    💡 {currentWord.association}
+                                    <div className="font-medium text-yellow-800 dark:text-yellow-200">
+                                        💡 English word: {currentWord.term}
+                                    </div>
+                                    {currentWord.association && (
+                                        <div className="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
+                                            {currentWord.association}
+                                        </div>
+                                    )}
                                 </motion.div>
                             )}
-
-                            {/* Visual Placeholder (Icon based on category could go here) */}
-                            <div className="opacity-10 absolute inset-0 flex items-center justify-center">
-                                <ImageIcon size={120} />
-                            </div>
                         </div>
                     </div>
 

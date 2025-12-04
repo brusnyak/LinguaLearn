@@ -14,7 +14,7 @@ export async function hashPassword(password: string): Promise<string> {
 // Get all users from IndexedDB
 export async function getAllUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 3);
+        const request = indexedDB.open('lingua-learn-db', 5);
 
         request.onerror = () => reject(request.error);
 
@@ -71,7 +71,7 @@ export async function createUser(
 
     // Save to IndexedDB
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 3);
+        const request = indexedDB.open('lingua-learn-db', 5);
 
         request.onerror = () => reject(request.error);
 
@@ -125,7 +125,7 @@ export async function loginUser(username: string, password: string): Promise<Use
 // Update user
 async function updateUser(user: User): Promise<void> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 3);
+        const request = indexedDB.open('lingua-learn-db', 5);
 
         request.onerror = () => reject(request.error);
 
@@ -154,7 +154,7 @@ export async function getCurrentUser(): Promise<User | null> {
     }
 
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 3);
+        const request = indexedDB.open('lingua-learn-db', 5);
 
         request.onerror = () => reject(request.error);
 

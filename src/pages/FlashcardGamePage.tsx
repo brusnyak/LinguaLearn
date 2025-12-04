@@ -69,6 +69,28 @@ const FlashcardGamePage: React.FC = () => {
 
     const [direction, setDirection] = useState(0);
 
+    const currentWord = words[currentIndex];
+
+    // Auto-read card when it appears (front side)
+    useEffect(() => {
+        if (autoReadEnabled && currentWord && !isFlipped && !loading && !finished) {
+            const timer = setTimeout(() => {
+                speak(currentWord.term, 'en-US');
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, [currentIndex, autoReadEnabled, isFlipped, speak, loading, finished, currentWord]);
+
+    // Auto-read translation when card flips
+    useEffect(() => {
+        if (autoReadEnabled && currentWord && isFlipped && !loading && !finished) {
+            const timer = setTimeout(() => {
+                speak(currentWord.translation, 'uk-UA');
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isFlipped, autoReadEnabled, currentWord, speak, loading, finished]);
+
     const handleNext = async (known: boolean) => {
         play(known ? 'success' : 'error');
         setDirection(known ? 1 : -1);
@@ -130,28 +152,6 @@ const FlashcardGamePage: React.FC = () => {
             </div>
         );
     }
-
-    const currentWord = words[currentIndex];
-
-    // Auto-read card when it appears (front side)
-    useEffect(() => {
-        if (autoReadEnabled && currentWord && !isFlipped) {
-            const timer = setTimeout(() => {
-                speak(currentWord.term, 'en-US');
-            }, 500); // Small delay for smoother UX
-            return () => clearTimeout(timer);
-        }
-    }, [currentIndex, autoReadEnabled, isFlipped, speak]);
-
-    // Auto-read translation when card flips
-    useEffect(() => {
-        if (autoReadEnabled && currentWord && isFlipped) {
-            const timer = setTimeout(() => {
-                speak(currentWord.translation, 'uk-UA');
-            }, 300); // Shorter delay since user just flipped
-            return () => clearTimeout(timer);
-        }
-    }, [isFlipped, autoReadEnabled, currentWord, speak]);
 
     return (
         <div className="max-w-md mx-auto h-[calc(100vh-100px)] flex flex-col">

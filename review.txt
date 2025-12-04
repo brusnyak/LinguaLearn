@@ -1,3 +1,180 @@
-1. there is no read functionality in stories, just play
-a. there is no quick add word/phrase from reading to dictionary
-2. there is a routing error or something, when i click on the exit arrow from the story it properly goes back to the reading practice, but when i click the arrow in reading practice, it then goes back to the story.
+1. cards are still not showing:
+Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+gemini.ts:8 Gemini API initialized with key: AIzaSyDCX8...
+contentLogger.js-TDUqHSu2.js:4 contentLogger
+main.tsx:17 SW registered: ServiceWorkerRegistration
+2App.tsx:50 Failed to initialize DB: VersionError: The requested version (3) is less than the existing version (5).
+init @ App.tsx:50Understand this error
+2SettingsPage.tsx:36 Uncaught (in promise) VersionError: The requested version (3) is less than the existing version (5).Understand this error
+react-dom_client.js?v=e58e2d9e:5594 React has detected a change in the order of Hooks called by FlashcardGamePage. This will lead to bugs and errors if not fixed. For more information, read the Rules of Hooks: https://react.dev/link/rules-of-hooks
+
+   Previous render            Next render
+   ------------------------------------------------------
+1. useContext                 useContext
+2. useContext                 useContext
+3. useContext                 useContext
+4. useContext                 useContext
+5. useContext                 useContext
+6. useContext                 useContext
+7. useContext                 useContext
+8. useRef                     useRef
+9. useContext                 useContext
+10. useLayoutEffect           useLayoutEffect
+11. useCallback               useCallback
+12. useState                  useState
+13. useState                  useState
+14. useEffect                 useEffect
+15. useCallback               useCallback
+16. useCallback               useCallback
+17. useRef                    useRef
+18. useCallback               useCallback
+19. useCallback               useCallback
+20. useState                  useState
+21. useState                  useState
+22. useState                  useState
+23. useState                  useState
+24. useState                  useState
+25. useState                  useState
+26. useState                  useState
+27. useEffect                 useEffect
+28. useState                  useState
+29. undefined                 useEffect
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+updateHookTypesDev @ react-dom_client.js?v=e58e2d9e:5594Understand this error
+react-dom_client.js?v=e58e2d9e:5792 Uncaught Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook (react-dom_client.js?v=e58e2d9e:5792:19)
+    at updateEffectImpl (react-dom_client.js?v=e58e2d9e:6414:20)
+    at Object.useEffect (react-dom_client.js?v=e58e2d9e:18946:11)
+    at exports.useEffect (chunk-YX2XZWS3.js?v=e58e2d9e:923:36)
+    at FlashcardGamePage (FlashcardGamePage.tsx:137:5)
+    at Object.react_stack_bottom_frame (react-dom_client.js?v=e58e2d9e:18509:20)
+    at renderWithHooks (react-dom_client.js?v=e58e2d9e:5654:24)
+    at updateFunctionComponent (react-dom_client.js?v=e58e2d9e:7475:21)
+    at beginWork (react-dom_client.js?v=e58e2d9e:8525:20)
+    at runWithFiberInDEV (react-dom_client.js?v=e58e2d9e:997:72)Understand this error
+react-dom_client.js?v=e58e2d9e:6966 An error occurred in the <FlashcardGamePage> component.
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries.
+
+defaultOnUncaughtError @ react-dom_client.js?v=e58e2d9e:6966Understand this warning
+
+
+
+2. word builder is not complete, better show translated word and letter in english, then if user doesn't know the word, he can click on lamp and it shpw translation [but only for this word], there should be clean ux/ui showing amount of words remaining for build, cause i only have 6 words and at the last one it simply gives me an error sound despite the fact i assambled it right
+better not use image in the word builder, there are some words that might not have according image/icon
+3. cehck that we can sign up/login: [failed to check username, please try again]
+Download the React DevTools for a better development experience: https://react.dev/link/react-devtools
+gemini.ts:8 Gemini API initialized with key: AIzaSyDCX8...
+contentLogger.js-TDUqHSu2.js:4 contentLogger
+main.tsx:17 SW registered: ServiceWorkerRegistration {installing: null, waiting: null, active: ServiceWorker, navigationPreload: NavigationPreloadManager, scope: 'http://localhost:5173/', …}
+LoginPage.tsx:28 Failed to load users: VersionError: The requested version (3) is less than the existing version (5).
+loadExistingUsers @ LoginPage.tsx:28
+await in loadExistingUsers
+(anonymous) @ LoginPage.tsx:15
+react_stack_bottom_frame @ react-dom_client.js?v=e58e2d9e:18567
+runWithFiberInDEV @ react-dom_client.js?v=e58e2d9e:997
+commitHookEffectListMount @ react-dom_client.js?v=e58e2d9e:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=e58e2d9e:9465
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11040
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11033
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11201
+recursivelyTraversePassiveMountEffects @ react-dom_client.js?v=e58e2d9e:11010
+commitPassiveMountOnFiber @ react-dom_client.js?v=e58e2d9e:11066
+flushPassiveEffects @ react-dom_client.js?v=e58e2d9e:13150
+(anonymous) @ react-dom_client.js?v=e58e2d9e:12776
+performWorkUntilDeadline @ react-dom_client.js?v=e58e2d9e:36
+<LoginPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=e58e2d9e:247
+App @ App.tsx:69
+react_stack_bottom_frame @ react-dom_client.js?v=e58e2d9e:18509
+renderWithHooksAgain @ react-dom_client.js?v=e58e2d9e:5729
+renderWithHooks @ react-dom_client.js?v=e58e2d9e:5665
+updateFunctionComponent @ react-dom_client.js?v=e58e2d9e:7475
+beginWork @ react-dom_client.js?v=e58e2d9e:8525
+runWithFiberInDEV @ react-dom_client.js?v=e58e2d9e:997
+performUnitOfWork @ react-dom_client.js?v=e58e2d9e:12561
+workLoopSync @ react-dom_client.js?v=e58e2d9e:12424
+renderRootSync @ react-dom_client.js?v=e58e2d9e:12408
+performWorkOnRoot @ react-dom_client.js?v=e58e2d9e:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=e58e2d9e:13505
+performWorkUntilDeadline @ react-dom_client.js?v=e58e2d9e:36
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=e58e2d9e:247
+(anonymous) @ main.tsx:8Understand this error
+LoginPage.tsx:28 Failed to load users: VersionError: The requested version (3) is less than the existing version (5).
+loadExistingUsers @ LoginPage.tsx:28
+await in loadExistingUsers
+(anonymous) @ LoginPage.tsx:15
+react_stack_bottom_frame @ react-dom_client.js?v=e58e2d9e:18567
+runWithFiberInDEV @ react-dom_client.js?v=e58e2d9e:997
+commitHookEffectListMount @ react-dom_client.js?v=e58e2d9e:9411
+commitHookPassiveMountEffects @ react-dom_client.js?v=e58e2d9e:9465
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11273
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11317
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11265
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11265
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11317
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11317
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11265
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11265
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11317
+recursivelyTraverseReconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11240
+reconnectPassiveEffects @ react-dom_client.js?v=e58e2d9e:11265
+doubleInvokeEffectsOnFiber @ react-dom_client.js?v=e58e2d9e:13339
+runWithFiberInDEV @ react-dom_client.js?v=e58e2d9e:997
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=e58e2d9e:13312
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=e58e2d9e:13317
+recursivelyTraverseAndDoubleInvokeEffectsInDEV @ react-dom_client.js?v=e58e2d9e:13317
+commitDoubleInvokeEffectsInDEV @ react-dom_client.js?v=e58e2d9e:13347
+flushPassiveEffects @ react-dom_client.js?v=e58e2d9e:13157
+(anonymous) @ react-dom_client.js?v=e58e2d9e:12776
+performWorkUntilDeadline @ react-dom_client.js?v=e58e2d9e:36
+<LoginPage>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=e58e2d9e:247
+App @ App.tsx:69
+react_stack_bottom_frame @ react-dom_client.js?v=e58e2d9e:18509
+renderWithHooksAgain @ react-dom_client.js?v=e58e2d9e:5729
+renderWithHooks @ react-dom_client.js?v=e58e2d9e:5665
+updateFunctionComponent @ react-dom_client.js?v=e58e2d9e:7475
+beginWork @ react-dom_client.js?v=e58e2d9e:8525
+runWithFiberInDEV @ react-dom_client.js?v=e58e2d9e:997
+performUnitOfWork @ react-dom_client.js?v=e58e2d9e:12561
+workLoopSync @ react-dom_client.js?v=e58e2d9e:12424
+renderRootSync @ react-dom_client.js?v=e58e2d9e:12408
+performWorkOnRoot @ react-dom_client.js?v=e58e2d9e:11766
+performWorkOnRootViaSchedulerTask @ react-dom_client.js?v=e58e2d9e:13505
+performWorkUntilDeadline @ react-dom_client.js?v=e58e2d9e:36
+<App>
+exports.jsxDEV @ react_jsx-dev-runtime.js?v=e58e2d9e:247
+(anonymous) @ main.tsx:8Understand this error
+
