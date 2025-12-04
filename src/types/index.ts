@@ -59,6 +59,7 @@ export interface UserSettings {
     notificationsEnabled: boolean;
     notificationTime: string;
     dailyGoal: number;  // NEW: Daily mastered words goal
+    autoReadFlashcards: boolean; // NEW: Auto-read flashcards with TTS
 }
 
 export type GameType = 'flashcard' | 'dungeon' | 'match';

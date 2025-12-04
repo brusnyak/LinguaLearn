@@ -18,6 +18,7 @@ const SettingsPage: React.FC = () => {
     const [notificationsEnabled, setNotificationsEnabled] = useState(false);
     const [notificationTime, setNotificationTime] = useState('19:00');
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+    const [autoReadFlashcards, setAutoReadFlashcards] = useState(true);
 
     useEffect(() => {
         loadSettings();
@@ -49,6 +50,9 @@ const SettingsPage: React.FC = () => {
             }
             if (s.notificationTime) {
                 setNotificationTime(s.notificationTime);
+            }
+            if (s.autoReadFlashcards !== undefined) {
+                setAutoReadFlashcards(s.autoReadFlashcards);
             }
         }
     };
@@ -95,6 +99,17 @@ const SettingsPage: React.FC = () => {
         await db.saveSettings(newSettings);
         setSettings(newSettings);
         showToast('Notification settings saved!', 'success');
+    };
+
+    const handleSaveGameSettings = async () => {
+        if (!settings) return;
+        const newSettings: UserSettings = {
+            ...settings,
+            autoReadFlashcards
+        };
+        await db.saveSettings(newSettings);
+        setSettings(newSettings);
+        showToast('Game settings saved!', 'success');
     };
 
     const handleResetData = async () => {
@@ -273,6 +288,45 @@ const SettingsPage: React.FC = () => {
                         </button>
                     </>
                 )}
+            </div>
+
+            {/* Game Settings */}
+            <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 text-[var(--color-primary)]">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="text-lg font-bold">Game Settings</h3>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <label className="text-sm font-medium">Auto-read flashcards</label>
+                        <p className="text-xs text-[var(--color-text-muted)] mt-1">Automatically speak words when cards appear</p>
+                    </div>
+                    <button
+                        onClick={() => setAutoReadFlashcards(!autoReadFlashcards)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            autoReadFlashcards
+                                ? 'bg-[var(--color-primary)]'
+                                : 'bg-gray-200 dark:bg-gray-700'
+                        }`}
+                    >
+                        <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                autoReadFlashcards ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                    </button>
+                </div>
+
+                <button
+                    onClick={handleSaveGameSettings}
+                    className="w-full md:w-auto px-6 py-2 rounded-lg bg-[var(--color-primary)] text-white font-bold flex items-center justify-center gap-2 hover:bg-[var(--color-primary-dark)] transition-colors"
+                >
+                    <Save size={18} /> Save Game Settings
+                </button>
             </div>
 
             <AppearanceSettings />

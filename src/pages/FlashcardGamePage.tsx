@@ -17,9 +17,11 @@ const FlashcardGamePage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [finished, setFinished] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
+    const [autoReadEnabled, setAutoReadEnabled] = useState(true);
 
     useEffect(() => {
         loadWords();
+        loadSettings();
         // Show tutorial on first visit
         const hasSeenTutorial = localStorage.getItem('flashcard-tutorial-seen');
         if (!hasSeenTutorial) {
@@ -51,6 +53,17 @@ const FlashcardGamePage: React.FC = () => {
             console.error("Failed to load words", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadSettings = async () => {
+        try {
+            const settings = await db.getSettings();
+            if (settings && settings.autoReadFlashcards !== undefined) {
+                setAutoReadEnabled(settings.autoReadFlashcards);
+            }
+        } catch (error) {
+            console.error('Failed to load settings:', error);
         }
     };
 
@@ -120,6 +133,26 @@ const FlashcardGamePage: React.FC = () => {
 
     const currentWord = words[currentIndex];
 
+    // Auto-read card when it appears (front side)
+    useEffect(() => {
+        if (autoReadEnabled && currentWord && !isFlipped) {
+            const timer = setTimeout(() => {
+                speak(currentWord.term, 'en-US');
+            }, 500); // Small delay for smoother UX
+            return () => clearTimeout(timer);
+        }
+    }, [currentIndex, autoReadEnabled, isFlipped, speak]);
+
+    // Auto-read translation when card flips
+    useEffect(() => {
+        if (autoReadEnabled && currentWord && isFlipped) {
+            const timer = setTimeout(() => {
+                speak(currentWord.translation, 'uk-UA');
+            }, 300); // Shorter delay since user just flipped
+            return () => clearTimeout(timer);
+        }
+    }, [isFlipped, autoReadEnabled, currentWord, speak]);
+
     return (
         <div className="max-w-md mx-auto h-[calc(100vh-100px)] flex flex-col">
             {/* Header */}
@@ -164,7 +197,7 @@ const FlashcardGamePage: React.FC = () => {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); speak(currentWord.term, 'en-US'); }}
                                     className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
-                                    title="Listen"
+                                    title="Listen (manual)"
                                 >
                                     <Volume2 size={24} />
                                 </button>

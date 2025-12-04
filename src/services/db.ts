@@ -20,10 +20,20 @@ interface LinguaDB extends DBSchema {
         key: string;
         value: UserProgress;
     };
+    translations: {
+        key: string;
+        value: {
+            text: string;
+            from: string;
+            to: string;
+            translation: string;
+            timestamp: number;
+        };
+    };
 }
 
 const DB_NAME = 'lingua-learn-db';
-const DB_VERSION = 3; // Incremented for progress store
+const DB_VERSION = 4; // Incremented for translations store
 
 let dbPromise: Promise<IDBPDatabase<LinguaDB>>;
 
@@ -52,6 +62,11 @@ export const initDB = () => {
                 // Progress Store (new in v2)
                 if (!db.objectStoreNames.contains('progress')) {
                     db.createObjectStore('progress');
+                }
+
+                // Translations Store (new in v4)
+                if (!db.objectStoreNames.contains('translations')) {
+                    db.createObjectStore('translations');
                 }
             },
         });
@@ -119,5 +134,32 @@ export const db = {
         const userId = getCurrentUserId();
         const key = userId ? `progress-${userId}` : 'progress';
         await db.put('progress', progress, key);
+    },
+
+    async getCachedTranslation(text: string, from: string, to: string): Promise<string | null> {
+        const db = await initDB();
+        const key = `${text.toLowerCase().trim()}|${from}|${to}`;
+        const cached = await db.get('translations', key);
+        if (cached) {
+            // Cache valid for 30 days
+            if (Date.now() - cached.timestamp < 30 * 24 * 60 * 60 * 1000) {
+                return cached.translation;
+            } else {
+                await db.delete('translations', key);
+            }
+        }
+        return null;
+    },
+
+    async cacheTranslation(text: string, from: string, to: string, translation: string): Promise<void> {
+        const db = await initDB();
+        const key = `${text.toLowerCase().trim()}|${from}|${to}`;
+        await db.put('translations', {
+            text,
+            from,
+            to,
+            translation,
+            timestamp: Date.now(),
+        }, key);
     },
 };

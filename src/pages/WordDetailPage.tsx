@@ -25,14 +25,43 @@ const WordDetailPage: React.FC = () => {
     const [type, setType] = useState<'word' | 'phrase'>('word');
     const [isTranslating, setIsTranslating] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [targetLang, setTargetLang] = useState('en');
+    const [nativeLang, setNativeLang] = useState('uk');
 
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
     useEffect(() => {
+        loadUserSettings();
         if (id && id !== 'new') {
             loadWord(id);
         }
     }, [id]);
+
+    const loadUserSettings = async () => {
+        try {
+            const settings = await db.getSettings();
+            if (settings?.profile) {
+                // Map full language names to codes
+                const langMap: Record<string, string> = {
+                    'English': 'en',
+                    'Ukrainian': 'uk',
+                    'Spanish': 'es',
+                    'French': 'fr',
+                    'German': 'de',
+                    'Italian': 'it',
+                    'Portuguese': 'pt',
+                    'Russian': 'ru',
+                    'Japanese': 'ja',
+                    'Korean': 'ko',
+                    'Chinese': 'zh'
+                };
+                setTargetLang(langMap[settings.profile.targetLanguage] || 'en');
+                setNativeLang(langMap[settings.profile.nativeLanguage] || 'uk');
+            }
+        } catch (error) {
+            console.error('Failed to load settings:', error);
+        }
+    };
 
     const loadWord = async (wordId: string) => {
         setLoading(true);
@@ -56,8 +85,8 @@ const WordDetailPage: React.FC = () => {
         if (!term) return;
         setIsTranslating(true);
         try {
-            // Assuming Term is English (Target) and we want Ukrainian (Native)
-            const result = await translateText(term, 'en', 'uk');
+            // Translate from target language to native language
+            const result = await translateText(term, targetLang, nativeLang);
             if (result) {
                 setTranslation(result);
                 showToast('Translation found!', 'success');
@@ -66,7 +95,7 @@ const WordDetailPage: React.FC = () => {
             }
         } catch (error) {
             console.error('Translation failed:', error);
-            showToast('Translation service failed.', 'error');
+            showToast('Translation service unavailable. Please try again.', 'error');
         } finally {
             setIsTranslating(false);
         }
