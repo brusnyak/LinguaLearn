@@ -1,28 +1,7 @@
-// Translation service using Google Gemini API with caching
-import { GoogleGenerativeAI } from '@google/generative-ai';
+// Translation service using LibreTranslate API
 import { db } from './db';
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const genAI = API_KEY ? new GoogleGenerativeAI(API_KEY) : null;
-
-// Language code mapping for better Gemini understanding
-const LANGUAGE_NAMES: Record<string, string> = {
-    'en': 'English',
-    'uk': 'Ukrainian',
-    'es': 'Spanish',
-    'fr': 'French',
-    'de': 'German',
-    'it': 'Italian',
-    'pt': 'Portuguese',
-    'ru': 'Russian',
-    'ja': 'Japanese',
-    'ko': 'Korean',
-    'zh': 'Chinese',
-};
-
-const getLanguageName = (code: string): string => {
-    return LANGUAGE_NAMES[code] || code;
-};
+const LIBRE_TRANSLATE_URL = import.meta.env.VITE_LIBRETRANSLATE_API_URL || 'https://libretranslate.de/translate';
 
 export const translateText = async (text: string, from: string, to: string): Promise<string> => {
     if (!text) return '';
@@ -38,38 +17,41 @@ export const translateText = async (text: string, from: string, to: string): Pro
         console.warn('Cache lookup failed, proceeding to API:', error);
     }
 
-    if (!genAI) {
-        console.error('Gemini API key missing');
-        throw new Error('Translation service not configured (API Key missing)');
-    }
-
     try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
-        
-        const fromLang = getLanguageName(from);
-        const toLang = getLanguageName(to);
-        
-        const prompt = `Translate the following text from ${fromLang} to ${toLang}.
-Only return the direct translation, nothing else. No explanations, no additional text.
+        const response = await fetch(LIBRE_TRANSLATE_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                q: text,
+                source: from,
+                target: to,
+                format: 'text',
+                api_key: '' // Empty for free tier usually, or handle if needed
+            }),
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-Text to translate: "${text}"`;
+        const data = await response.json();
 
-        const result = await model.generateContent(prompt);
-        const translation = result.response.text().trim();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        const translation = data.translatedText;
         
-        // Remove any quotes that Gemini might add
-        const cleanTranslation = translation.replace(/^["']|["']$/g, '');
-        
+        if (!translation) {
+             throw new Error('No translation returned');
+        }
+
         // Cache the translation
         try {
-            await db.cacheTranslation(text, from, to, cleanTranslation);
+            await db.cacheTranslation(text, from, to, translation);
         } catch (error) {
             console.warn('Failed to cache translation:', error);
         }
         
-        return cleanTranslation;
+        return translation;
     } catch (error) {
         console.error('Translation failed:', error);
-        throw new Error('Translation service unavailable. Please try again.');
+        throw new Error('Translation service unavailable. Please try again later.');
     }
 };

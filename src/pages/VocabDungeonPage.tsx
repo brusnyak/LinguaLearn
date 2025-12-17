@@ -5,11 +5,13 @@ import { db } from '../services/db';
 import type { Word } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { awardXP, XP_REWARDS } from '../services/xp';
+import { useTTS } from '../hooks/useTTS';
 import { useToast } from '../context/ToastContext';
 
 const VocabDungeonPage: React.FC = () => {
     const navigate = useNavigate();
     const { showToast } = useToast();
+    const { speak } = useTTS();
     const [words, setWords] = useState<Word[]>([]);
     const [currentWord, setCurrentWord] = useState<Word | null>(null);
     const [options, setOptions] = useState<string[]>([]);
@@ -89,6 +91,9 @@ const VocabDungeonPage: React.FC = () => {
         const allOptions = [...wrongOptions, randomWord.translation].sort(() => 0.5 - Math.random());
         setOptions(allOptions);
         setFeedback('none');
+        
+        // Speak the new word
+        speak(randomWord.term, 'en-US');
     };
 
     const handleAttack = async (selectedOption: string) => {

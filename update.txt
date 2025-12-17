@@ -1,29 +1,97 @@
+could you suggest if there are free apis? i need a free, simple yet durbale enough api to handle translation and short stories generation for my word learning app. google ai studio api is constantly failing, despite the fact there is a lot of free usage, any suggestions?
+You’re running into a very common pain point: “free” AI APIs that technically offer generous quotas but fail unpredictably under load. The good news is that there are a few genuinely free, stable, and developer‑friendly options — but each comes with trade‑offs.
 
+Below is a clear, decision‑ready breakdown grounded in the search results you triggered.
 
+🌍 For Translation (Free & Reliable)
+✅ 1. LibreTranslate (Free, Open‑Source, Self‑Hostable)
+This is the strongest truly free option if you want stability and control.
 
-after we fix that we can work on improvements like:
-more games, more levels - phase 1 complete:
-Phase 2 (Later/Optional):
+Fully open‑source and offline‑capable
 
-Word Connect (more complex UI)
-Crossword (puzzle generation logic)
-Pronunciation (needs speech recognition setup)
+No vendor lock‑in
 
+Can run on your own server or use public instances
 
-we could add some sounds for confirmation, notification system - done
+Supports 17 languages
 
-we should add proper pronounciation of the words in according langauge - done
+Simple REST API
 
-we could add like a calendar section so that user keep track of their daily progress - done
-then set notifications for the user to get back and train - done
+No rate limits if self‑hosted
 
-we could implement system so thst not only words would be possible to enlist, but proper phrases - done
+Search confirms it’s free, open‑source, and easy to set up.
 
-in home section we could then add that progress - done
-add word of the day section - done
-suggested films for you to watch to improve your english 
-suggest some article or short story to read to improve your english, it should be robust so that they could listen to the story [specific phrase, sentance, word; it should be robust. they should also be able to select some part of the story: whole story, sentance, phrase, word to see transaltion to it], then there should be functionality to record or read aloud and there should be functionality to check it adn give grade, suggestion. as i said... robust.
+Best use case:  
+Your translation needs are moderate, and you want something that won’t randomly fail like Google’s free tier.
 
-then we could properly setup user account, where we would get what do they want to learn language for, their native and target language, their current level to be determined by the test - done, but without the test, user simply selects their level.
+Downside:  
+Quality is not at Google/DeepL level, but for vocabulary learning it’s usually enough.
 
+✍️ For Short Story Generation (Free-ish Options)
+This is trickier because text generation is expensive, and most providers limit free usage heavily.
 
+✅ 2. Self‑hosted open‑source LLMs (the most durable option)
+Since you already work with local models (Qwen, DeepSeek, etc.), you could:
+
+Run a small model (e.g., Qwen 2.5 1.5B or 3B) behind a simple FastAPI server
+
+Expose it as your own “story generation API”
+
+Zero cost, zero rate limits, full control
+
+Pros:
+
+No failures due to quota
+
+Fast on M1 Pro
+
+Perfect for short stories (you don’t need GPT‑4 level quality)
+
+Cons:
+
+You maintain the server (but it’s trivial with uvicorn + FastAPI)
+
+✅ 3. Public LibreTranslate + Local LLM Combo
+This is the most stable free architecture:
+
+Task	API
+Translation	LibreTranslate (public or self‑hosted)
+Story generation	Local LLM served via your own API
+This gives you 100% reliability without depending on flaky free tiers.
+
+✅ 4. Other “free” APIs (but with caveats)
+These exist, but none are as durable as self‑hosting:
+
+HuggingFace Inference API (free tier)
+Works for translation and generation
+
+But rate‑limited and can be slow
+
+Not reliable for production
+
+RapidAPI translation APIs
+Search results show many translation APIs, but most are freemium with strict limits.
+
+Smartling’s list of free translation APIs
+Search results mention free translation APIs but highlight limitations and scaling issues.
+
+🧭 My recommendation for your app (based on your workflow + skills)
+Given your background in Python, Conda, and model hosting, the best long‑term solution is:
+
+✅ Use LibreTranslate for translation
+Either public endpoint or self‑hosted
+
+Stable, predictable, free
+
+Easy to deploy in Docker
+
+✅ Run a small local LLM for story generation
+Qwen 1.5B or 3B is perfect
+
+Serve via FastAPI
+
+Zero cost, zero failures
+
+You can even fine‑tune it on your own vocabulary stories
+
+This gives you a fully free, fully stable, fully controllable pipeline.

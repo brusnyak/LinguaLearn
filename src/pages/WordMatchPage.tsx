@@ -4,6 +4,7 @@ import { ArrowLeft, Trophy } from 'lucide-react';
 import { db } from '../services/db';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSound } from '../hooks/useSound';
+import { useTTS } from '../hooks/useTTS';
 
 interface Card {
     id: string;
@@ -17,6 +18,7 @@ interface Card {
 const WordMatchPage: React.FC = () => {
     const navigate = useNavigate();
     const { play } = useSound();
+    const { speak } = useTTS();
     const [cards, setCards] = useState<Card[]>([]);
     const [selectedCards, setSelectedCards] = useState<string[]>([]);
     const [moves, setMoves] = useState(0);
@@ -96,6 +98,13 @@ const WordMatchPage: React.FC = () => {
 
         const newSelected = [...selectedCards, cardId];
         setSelectedCards(newSelected);
+
+        // Speak the card content
+        if (card.isWord) {
+            speak(card.content, 'en-US');
+        } else {
+            speak(card.content, 'uk-UA'); // Assuming Ukrainian for translation
+        }
 
         if (newSelected.length === 2) {
             setMoves(prev => prev + 1);
