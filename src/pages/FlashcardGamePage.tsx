@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RotateCw, Check, X, Volume2 } from 'lucide-react';
 import { db } from '../services/db';
@@ -11,6 +11,8 @@ const FlashcardGamePage: React.FC = () => {
     const navigate = useNavigate();
     const { speak } = useTTS();
     const { play } = useSound();
+    
+    // All state at the top level
     const [words, setWords] = useState<Word[]>([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [isFlipped, setIsFlipped] = useState(false);
@@ -18,11 +20,12 @@ const FlashcardGamePage: React.FC = () => {
     const [finished, setFinished] = useState(false);
     const [showTutorial, setShowTutorial] = useState(false);
     const [autoReadEnabled, setAutoReadEnabled] = useState(true);
+    const [direction, setDirection] = useState(0);
 
+    // Load words on mount
     useEffect(() => {
         loadWords();
         loadSettings();
-        // Show tutorial on first visit
         const hasSeenTutorial = localStorage.getItem('flashcard-tutorial-seen');
         if (!hasSeenTutorial) {
             setShowTutorial(true);
@@ -32,14 +35,10 @@ const FlashcardGamePage: React.FC = () => {
     const loadWords = async () => {
         try {
             const allWords = await db.getWords();
-            // Simple algorithm: Sort by mastery level (ascending) and then last reviewed (ascending)
-            // This prioritizes words you don't know or haven't seen in a while.
             const sortedWords = allWords.sort((a, b) => {
                 if (a.masteryLevel !== b.masteryLevel) return a.masteryLevel - b.masteryLevel;
                 return a.lastReviewed - b.lastReviewed;
             });
-
-            // Take top 10 for this session
             const sessionWords = sortedWords.slice(0, 10);
 
             if (sessionWords.length === 0) {
@@ -67,11 +66,9 @@ const FlashcardGamePage: React.FC = () => {
         }
     };
 
-    const [direction, setDirection] = useState(0);
-
     const currentWord = words[currentIndex];
 
-    // Auto-read card when it appears (front side)
+    // Auto-read card when it appears
     useEffect(() => {
         if (autoReadEnabled && currentWord && !isFlipped && !loading && !finished) {
             const timer = setTimeout(() => {
@@ -79,7 +76,7 @@ const FlashcardGamePage: React.FC = () => {
             }, 500);
             return () => clearTimeout(timer);
         }
-    }, [currentIndex, autoReadEnabled, isFlipped, speak, loading, finished, currentWord]);
+    }, [currentIndex, autoReadEnabled, isFlipped, loading, finished, currentWord, speak]);
 
     // Auto-read translation when card flips
     useEffect(() => {
@@ -91,22 +88,20 @@ const FlashcardGamePage: React.FC = () => {
         }
     }, [isFlipped, autoReadEnabled, currentWord, speak, loading, finished]);
 
-    const handleNext = async (known: boolean) => {
+    const handleNext = useCallback(async (known: boolean) => {
+        if (!currentWord) return;
+        
         play(known ? 'success' : 'error');
         setDirection(known ? 1 : -1);
-        const currentWord = words[currentIndex];
 
-        // Update mastery
         const newMastery = known
             ? Math.min(5, currentWord.masteryLevel + 1)
             : Math.max(0, currentWord.masteryLevel - 1);
 
-        // Track consecutive correct answers
         const newTimesCorrect = known
             ? (currentWord.timesCorrect || 0) + 1
-            : 0; // Reset on wrong answer
+            : 0;
 
-        // Mark as mastered if 2 consecutive correct
         const isMastered = newTimesCorrect >= 2;
 
         const updatedWord: Word = {
@@ -118,11 +113,10 @@ const FlashcardGamePage: React.FC = () => {
         };
 
         try {
-            await db.addWord(updatedWord); // This updates existing word because ID matches
+            await db.addWord(updatedWord);
 
-            // Show special feedback for mastered words
             if (!currentWord.isMastered && isMastered) {
-                play('levelUp'); // Special sound for mastery!
+                play('levelUp');
             }
         } catch (error) {
             console.error("Failed to update word", error);
@@ -138,7 +132,16 @@ const FlashcardGamePage: React.FC = () => {
         } else {
             setFinished(true);
         }
-    };
+    }, [currentWord, currentIndex, words.length, play]);
+
+    // Swipe handler
+    const handleSwipe = useCallback((swipeDirection: number) => {
+        if (swipeDirection > 100) {
+            handleNext(true); // right - known
+        } else if (swipeDirection < -100) {
+            handleNext(false); // left - forgot
+        }
+    }, [handleNext]);
 
     if (loading) return <div className="p-10 text-center">Loading Cards...</div>;
 
@@ -155,7 +158,6 @@ const FlashcardGamePage: React.FC = () => {
 
     return (
         <div className="max-w-md mx-auto h-[calc(100vh-100px)] flex flex-col">
-            {/* Header */}
             <div className="flex justify-between items-center mb-6">
                 <button onClick={() => navigate('/games')} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800">
                     <ArrowLeft />
@@ -164,23 +166,13 @@ const FlashcardGamePage: React.FC = () => {
                 <div className="w-8"></div>
             </div>
 
-            {/* Card Area */}
             <div className="flex-1 flex flex-col items-center justify-center perspective-1000 relative w-full">
                 <AnimatePresence mode="wait">
                     <motion.div
                         key={currentIndex}
                         drag="x"
                         dragElastic={0.2}
-                        onDragEnd={(_, info) => {
-                            // Swipe right = known (> 100px)
-                            if (info.offset.x > 100) {
-                                handleNext(true);
-                            }
-                            // Swipe left = forgot (< -100px)
-                            else if (info.offset.x < -100) {
-                                handleNext(false);
-                            }
-                        }}
+                        onDragEnd={(_, info) => handleSwipe(info.offset.x)}
                         initial={{ x: 300, opacity: 0 }}
                         animate={{ x: 0, opacity: 1 }}
                         exit={{ x: direction * 300, opacity: 0, transition: { duration: 0.2 } }}
@@ -197,7 +189,6 @@ const FlashcardGamePage: React.FC = () => {
                                 <button
                                     onClick={(e) => { e.stopPropagation(); speak(currentWord.term, 'en-US'); }}
                                     className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
-                                    title="Listen (manual)"
                                 >
                                     <Volume2 size={24} />
                                 </button>
@@ -209,13 +200,10 @@ const FlashcardGamePage: React.FC = () => {
                             </div>
 
                             {/* Back */}
-                            <div
-                                className="absolute inset-0 [backface-visibility:hidden] bg-[var(--color-primary)] text-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 [transform:rotateY(180deg)]"
-                            >
+                            <div className="absolute inset-0 [backface-visibility:hidden] bg-[var(--color-primary)] text-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 [transform:rotateY(180deg)]">
                                 <button
                                     onClick={(e) => { e.stopPropagation(); speak(currentWord.translation, 'uk-UA'); }}
                                     className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 transition-colors"
-                                    title="Listen"
                                 >
                                     <Volume2 size={24} />
                                 </button>
@@ -228,7 +216,6 @@ const FlashcardGamePage: React.FC = () => {
                 </AnimatePresence>
             </div>
 
-            {/* Controls */}
             <div className="mt-8 h-16">
                 {!isFlipped ? (
                     <button
@@ -255,7 +242,6 @@ const FlashcardGamePage: React.FC = () => {
                 )}
             </div>
 
-            {/* Tutorial Modal */}
             <AnimatePresence>
                 {showTutorial && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -268,22 +254,12 @@ const FlashcardGamePage: React.FC = () => {
                             <h3 className="text-2xl font-bold mb-4">How to Play</h3>
                             <div className="space-y-4 text-[var(--color-text-muted)]">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-600 dark:text-green-400">
-                                        👉
-                                    </div>
-                                    <span>Swipe <strong className="text-green-600 dark:text-green-400">right</strong> if you know the word</span>
+                                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center text-green-600 dark:text-green-400">👉</div>
+                                    <span>Swipe <strong className="text-green-600 dark:text-green-400">right</strong> if you know</span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">
-                                        👈
-                                    </div>
+                                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400">👈</div>
                                     <span>Swipe <strong className="text-red-600 dark:text-red-400">left</strong> if you forgot</span>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-[var(--color-primary)] rounded-lg flex items-center justify-center text-white">
-                                        <RotateCw size={20} />
-                                    </div>
-                                    <span>Tap card to flip and see the answer</span>
                                 </div>
                             </div>
                             <button

@@ -1,23 +1,90 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
+import { importFromFile, createCSVTemplate, type ImportResult } from '../services/import';
 import type { Word } from '../types';
-import { Search, Plus, Volume2 } from 'lucide-react';
+import { Search, Plus, Volume2, Upload, X, Check } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 const DictionaryPage: React.FC = () => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [words, setWords] = useState<Word[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [importing, setImporting] = useState(false);
+    const [importResult, setImportResult] = useState<ImportResult | null>(null);
+    const [showImportModal, setShowImportModal] = useState(false);
 
     useEffect(() => {
         loadWords();
     }, []);
 
+    const handleImportClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setImporting(true);
+        setShowImportModal(true);
+
+        try {
+            const result = await importFromFile(file);
+            setImportResult(result);
+        } catch (error: any) {
+            setImportResult({
+                success: false,
+                words: [],
+                errors: [error.message],
+                imported: 0,
+                skipped: 0,
+            });
+        } finally {
+            setImporting(false);
+        }
+    };
+
+    const handleConfirmImport = async () => {
+        if (!importResult || !importResult.success) {
+            setShowImportModal(false);
+            setImportResult(null);
+            return;
+        }
+
+        try {
+            let imported = 0;
+            for (const word of importResult.words) {
+                await db.addWord(word);
+                imported++;
+            }
+            await loadWords();
+            showToast(`Imported ${imported} words!`, 'success');
+            setShowImportModal(false);
+            setImportResult(null);
+        } catch (error) {
+            console.error('Failed to save imported words:', error);
+            showToast('Failed to save imported words', 'error');
+        }
+    };
+
+    const handleDownloadTemplate = () => {
+        const template = createCSVTemplate();
+        const blob = new Blob([template], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'lingualearn_template.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     const loadWords = async () => {
         try {
             const allWords = await db.getWords();
-            // Sort alphabetically by term
             allWords.sort((a, b) => a.term.localeCompare(b.term));
             setWords(allWords);
         } catch (error) {
@@ -32,7 +99,6 @@ const DictionaryPage: React.FC = () => {
         word.translation.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    // Group by first letter
     const groupedWords = filteredWords.reduce((acc, word) => {
         const letter = word.term[0].toUpperCase();
         if (!acc[letter]) acc[letter] = [];
@@ -46,15 +112,31 @@ const DictionaryPage: React.FC = () => {
         <div className="space-y-6 pb-20 pt-6">
             <div className="flex justify-between items-center">
                 <h2 className="text-2xl font-bold">Dictionary</h2>
-                <button
-                    onClick={() => navigate('/word/new')}
-                    className="btn btn-primary shadow-lg shadow-purple-500/30"
-                >
-                    <Plus size={20} className="mr-1" /> Add Word
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        onClick={handleImportClick}
+                        className="btn btn-secondary"
+                        title="Import from CSV/Excel"
+                    >
+                        <Upload size={18} />
+                    </button>
+                    <button
+                        onClick={() => navigate('/word/new')}
+                        className="btn btn-primary shadow-lg shadow-purple-500/30"
+                    >
+                        <Plus size={20} className="mr-1" /> Add Word
+                    </button>
+                </div>
             </div>
 
-            {/* Search Bar */}
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+                className="hidden"
+            />
+
             <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
@@ -94,7 +176,6 @@ const DictionaryPage: React.FC = () => {
                                                 </div>
                                                 <div className="text-[var(--color-text-muted)] text-sm flex items-center gap-2">
                                                     {word.translation}
-                                                    {/* Mastery Indicator */}
                                                     <div className="flex gap-0.5 ml-2" title={`Mastery Level: ${word.masteryLevel || 0}/5`}>
                                                         {[...Array(5)].map((_, i) => (
                                                             <div
@@ -117,6 +198,97 @@ const DictionaryPage: React.FC = () => {
                             </div>
                         ))
                     )}
+                </div>
+            )}
+
+            {/* Import Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                    <div className="bg-[var(--color-bg-card)] rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-bold">Import Words</h3>
+                            <button onClick={() => { setShowImportModal(false); setImportResult(null); }} className="p-2">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {importing ? (
+                            <div className="text-center py-8">
+                                <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                                <p>Processing file...</p>
+                            </div>
+                        ) : importResult ? (
+                            <div className="space-y-4">
+                                {importResult.success ? (
+                                    <>
+                                        <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-lg">
+                                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                                                <Check size={20} />
+                                                <span className="font-bold">Ready to import</span>
+                                            </div>
+                                            <p className="text-sm mt-1">
+                                                {importResult.imported} words found ({importResult.skipped} skipped)
+                                            </p>
+                                        </div>
+                                        <div className="max-h-40 overflow-y-auto border rounded-lg">
+                                            {importResult.words.slice(0, 5).map((word, i) => (
+                                                <div key={i} className="px-3 py-2 border-b text-sm">
+                                                    <strong>{word.term}</strong> → {word.translation}
+                                                </div>
+                                            ))}
+                                            {importResult.words.length > 5 && (
+                                                <div className="px-3 py-2 text-sm text-gray-500">
+                                                    ...and {importResult.words.length - 5} more
+                                                </div>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-lg">
+                                        <p className="text-red-700 dark:text-red-400 font-bold">Import failed</p>
+                                        {importResult.errors.map((err, i) => (
+                                            <p key={i} className="text-sm">{err}</p>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={handleDownloadTemplate}
+                                        className="flex-1 py-2 text-sm border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+                                    >
+                                        Download Template
+                                    </button>
+                                    {importResult?.success ? (
+                                        <button
+                                            onClick={handleConfirmImport}
+                                            className="flex-1 py-2 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600"
+                                        >
+                                            Import {importResult.imported} Words
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setShowImportModal(false); setImportResult(null); }}
+                                            className="flex-1 py-2 bg-gray-500 text-white rounded-lg font-bold"
+                                        >
+                                            Close
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-8">
+                                <Upload size={48} className="mx-auto mb-4 text-gray-400" />
+                                <p className="mb-4">Select a CSV or Excel file to import words</p>
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className="text-purple-500 hover:underline text-sm"
+                                >
+                                    Download CSV Template
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </div>

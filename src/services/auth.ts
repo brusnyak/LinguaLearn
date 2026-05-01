@@ -11,15 +11,32 @@ export async function hashPassword(password: string): Promise<string> {
     return hashHex;
 }
 
+// Current DB version - must match db.ts
+const DB_VERSION = 5;
+
 // Get all users from IndexedDB
 export async function getAllUsers(): Promise<User[]> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 5);
+        const request = indexedDB.open('lingua-learn-db', DB_VERSION);
 
         request.onerror = () => reject(request.error);
 
+        request.onupgradeneeded = (event) => {
+            // Handle upgrade if needed - create users store
+            const db = (event.target as IDBOpenDBRequest).result;
+            if (!db.objectStoreNames.contains('users')) {
+                db.createObjectStore('users', { keyPath: 'id' });
+            }
+        };
+
         request.onsuccess = () => {
             const db = request.result;
+            // Check if users store exists
+            if (!db.objectStoreNames.contains('users')) {
+                // Store doesn't exist, resolve empty
+                resolve([]);
+                return;
+            }
             const transaction = db.transaction(['users'], 'readonly');
             const store = transaction.objectStore('users');
             const getAllRequest = store.getAll();
@@ -71,7 +88,7 @@ export async function createUser(
 
     // Save to IndexedDB
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 5);
+        const request = indexedDB.open('lingua-learn-db', DB_VERSION);
 
         request.onerror = () => reject(request.error);
 
@@ -125,7 +142,7 @@ export async function loginUser(username: string, password: string): Promise<Use
 // Update user
 async function updateUser(user: User): Promise<void> {
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 5);
+        const request = indexedDB.open('lingua-learn-db', DB_VERSION);
 
         request.onerror = () => reject(request.error);
 
@@ -154,12 +171,17 @@ export async function getCurrentUser(): Promise<User | null> {
     }
 
     return new Promise((resolve, reject) => {
-        const request = indexedDB.open('lingua-learn-db', 5);
+        const request = indexedDB.open('lingua-learn-db', DB_VERSION);
 
         request.onerror = () => reject(request.error);
 
         request.onsuccess = () => {
             const db = request.result;
+            // Check if users store exists
+            if (!db.objectStoreNames.contains('users')) {
+                resolve(null);
+                return;
+            }
             const transaction = db.transaction(['users'], 'readonly');
             const store = transaction.objectStore('users');
             const getRequest = store.get(userId);
