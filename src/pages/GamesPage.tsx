@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sword, Layers, Trophy, Puzzle, Globe } from 'lucide-react';
+import { Sword, Layers, Trophy, Puzzle, Globe, Headphones } from 'lucide-react';
 import { getXPInfo } from '../services/xp';
 
 const GamesPage: React.FC = () => {
@@ -57,6 +57,14 @@ const GamesPage: React.FC = () => {
             icon: Globe,
             color: 'from-pink-400 to-rose-500',
             path: '/games/real-world'
+        },
+        {
+            id: 'listening',
+            title: 'Listening Challenge',
+            description: 'Test your listening skills! Type what you hear in the target language.',
+            icon: Headphones,
+            color: 'from-cyan-400 to-blue-500',
+            path: '/games/listening'
         }
     ];
 

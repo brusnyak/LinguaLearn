@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { importFromFile, createCSVTemplate, type ImportResult } from '../services/import';
+import { importFromFile, createCSVTemplate, createTextTemplate, type ImportResult } from '../services/import';
 import type { Word } from '../types';
 import { Search, Plus, Volume2, Upload, X, Check } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -16,6 +16,7 @@ const DictionaryPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
+    const [templateFormat, setTemplateFormat] = useState<'csv' | 'text'>('csv');
 
     useEffect(() => {
         loadWords();
@@ -72,13 +73,18 @@ const DictionaryPage: React.FC = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const template = createCSVTemplate();
-        const blob = new Blob([template], { type: 'text/csv' });
+        const template = templateFormat === 'csv' ? createCSVTemplate() : createTextTemplate();
+        const mimeType = templateFormat === 'csv' ? 'text/csv' : 'text/plain';
+        const filename = templateFormat === 'csv' ? 'word-template.csv' : 'word-template.txt';
+        
+        const blob = new Blob([template], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'lingualearn_template.csv';
+        a.download = filename;
+        document.body.appendChild(a);
         a.click();
+        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     };
 
@@ -132,7 +138,7 @@ const DictionaryPage: React.FC = () => {
             <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.xlsx,.xls"
+                accept=".csv,.xlsx,.xls,.txt,.text"
                 onChange={handleFileChange}
                 className="hidden"
             />
@@ -279,12 +285,39 @@ const DictionaryPage: React.FC = () => {
                         ) : (
                             <div className="text-center py-8">
                                 <Upload size={48} className="mx-auto mb-4 text-gray-400" />
-                                <p className="mb-4">Select a CSV or Excel file to import words</p>
+                                <p className="mb-4">Select a CSV, Excel, or text file to import words</p>
+                                
+                                <div className="mb-4">
+                                    <label className="text-sm text-gray-600 dark:text-gray-400 mb-2 block">Template Format:</label>
+                                    <div className="flex justify-center gap-2">
+                                        <button
+                                            onClick={() => setTemplateFormat('csv')}
+                                            className={`px-3 py-1 text-sm rounded-lg border ${
+                                                templateFormat === 'csv' 
+                                                    ? 'bg-purple-500 text-white border-purple-500' 
+                                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                                            }`}
+                                        >
+                                            CSV
+                                        </button>
+                                        <button
+                                            onClick={() => setTemplateFormat('text')}
+                                            className={`px-3 py-1 text-sm rounded-lg border ${
+                                                templateFormat === 'text' 
+                                                    ? 'bg-purple-500 text-white border-purple-500' 
+                                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                                            }`}
+                                        >
+                                            Text
+                                        </button>
+                                    </div>
+                                </div>
+                                
                                 <button
                                     onClick={handleDownloadTemplate}
                                     className="text-purple-500 hover:underline text-sm"
                                 >
-                                    Download CSV Template
+                                    Download {templateFormat === 'csv' ? 'CSV' : 'Text'} Template
                                 </button>
                             </div>
                         )}

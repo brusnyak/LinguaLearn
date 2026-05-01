@@ -76,27 +76,145 @@ export const initDB = () => {
 
 export const db = {
     async getWords(): Promise<Word[]> {
-        const db = await initDB();
-        const userId = getCurrentUserId();
-        const allWords = await db.getAll('words');
-        // Filter by userId if logged in
-        return userId ? allWords.filter(w => w.userId === userId) : allWords;
+        try {
+            const db = await initDB();
+            const userId = getCurrentUserId();
+            const allWords = await db.getAll('words');
+            
+            // Filter by userId if logged in and validate data
+            const filteredWords = userId 
+                ? allWords.filter(w => w.userId === userId)
+                : allWords;
+                
+            // Validate word objects and filter out corrupted data
+            return filteredWords.filter(word => 
+                word && 
+                typeof word.id === 'string' && 
+                typeof word.term === 'string' && 
+                typeof word.translation === 'string' &&
+                word.term.trim().length > 0 &&
+                word.translation.trim().length > 0
+            );
+        } catch (error) {
+            console.error('Failed to get words:', error);
+            return [];
+        }
     },
 
     async addWord(word: Word): Promise<string> {
-        const db = await initDB();
-        const userId = getCurrentUserId();
-        // Auto-add userId if logged in
-        if (userId && !word.userId) {
-            word.userId = userId;
+        try {
+            // Validate word data
+            if (!word || !word.term || !word.translation || word.term.trim().length === 0 || word.translation.trim().length === 0) {
+                throw new Error('Invalid word data: term and translation are required');
+            }
+            
+            const db = await initDB();
+            const userId = getCurrentUserId();
+            
+            // Create a clean word object
+            const cleanWord: Word = {
+                id: word.id || `word-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                term: word.term.trim(),
+                translation: word.translation.trim(),
+                category: word.category || 'Other',
+                type: word.type || 'word',
+                masteryLevel: Math.max(0, Math.min(5, word.masteryLevel || 0)),
+                lastReviewed: word.lastReviewed || 0,
+                timesCorrect: Math.max(0, word.timesCorrect || 0),
+                isMastered: Boolean(word.isMastered),
+                association: word.association || '',
+                createdAt: word.createdAt || Date.now(),
+                userId: userId || word.userId
+            };
+            
+            await db.put('words', cleanWord);
+            return cleanWord.id;
+        } catch (error) {
+            console.error('Failed to add word:', error);
+            throw error;
         }
-        await db.put('words', word);
-        return word.id;
     },
 
     async deleteWord(id: string): Promise<void> {
-        const db = await initDB();
-        await db.delete('words', id);
+        try {
+            const db = await initDB();
+            await db.delete('words', id);
+        } catch (error) {
+            console.error('Failed to delete word:', error);
+            throw error;
+        }
+    },
+
+    async updateWord(id: string, updates: Partial<Word>): Promise<void> {
+        try {
+            const db = await initDB();
+            const existingWord = await db.get('words', id);
+            if (!existingWord) {
+                throw new Error('Word not found');
+            }
+            
+            const updatedWord = { ...existingWord, ...updates };
+            await db.put('words', updatedWord);
+        } catch (error) {
+            console.error('Failed to update word:', error);
+            throw error;
+        }
+    },
+
+    async backupData(): Promise<string> {
+        try {
+            const db = await initDB();
+            const words = await db.getAll('words');
+            const settings = await db.get('settings', 'user-settings');
+            const progress = await db.get('progress', 'progress');
+            
+            const backup = {
+                version: DB_VERSION,
+                timestamp: Date.now(),
+                words,
+                settings,
+                progress
+            };
+            
+            return JSON.stringify(backup);
+        } catch (error) {
+            console.error('Failed to backup data:', error);
+            throw error;
+        }
+    },
+
+    async restoreData(backupData: string): Promise<void> {
+        try {
+            const backup = JSON.parse(backupData);
+            const db = await initDB();
+            
+            const tx = db.transaction(['words', 'settings', 'progress'], 'readwrite');
+            
+            // Clear existing data
+            await tx.objectStore('words').clear();
+            await tx.objectStore('settings').clear();
+            await tx.objectStore('progress').clear();
+            
+            // Restore data
+            if (backup.words && Array.isArray(backup.words)) {
+                for (const word of backup.words) {
+                    await tx.objectStore('words').put(word);
+                }
+            }
+            
+            if (backup.settings) {
+                await tx.objectStore('settings').put(backup.settings, 'user-settings');
+            }
+            
+            if (backup.progress) {
+                await tx.objectStore('progress').put(backup.progress, 'progress');
+            }
+            
+            await tx.done;
+        } catch (error) {
+            console.error('Failed to restore data:', error);
+            throw error;
+        }
     },
 
     async getSettings(): Promise<UserSettings | undefined> {

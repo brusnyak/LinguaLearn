@@ -17,6 +17,7 @@ import ReadingPracticePage from './pages/ReadingPracticePage';
 import StoryReaderPage from './pages/StoryReaderPage';
 import WordBuilderPage from './pages/WordBuilderPage';
 import RealWorldPracticePage from './pages/RealWorldPracticePage';
+import ListeningChallengePage from './pages/ListeningChallengePage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
@@ -93,6 +94,7 @@ function App() {
               <Route path="/games/word-match" element={<Layout fullscreen><WordMatchPage /></Layout>} />
 <Route path="/games/word-builder" element={<Layout fullscreen><WordBuilderPage /></Layout>} />
               <Route path="/games/real-world" element={<Layout fullscreen><RealWorldPracticePage /></Layout>} />
+              <Route path="/games/listening" element={<Layout fullscreen><ListeningChallengePage /></Layout>} />
             </>
           )}
         </Routes>
