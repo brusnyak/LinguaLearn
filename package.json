@@ -20,7 +20,7 @@
     "react-router-dom": "^7.9.6",
     "tailwind-merge": "^3.4.0",
     "uuid": "^14.0.0",
-    "vite-plugin-pwa": "^0.19.8",
+    "vite-plugin-pwa": "^0.21.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
