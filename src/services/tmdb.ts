@@ -1,4 +1,4 @@
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY || '6559ac2ee525595dd90a994feb5bcb71';
+const TMDB_API_KEY = import.meta.env.TMDB_API_KEY || import.meta.env.VITE_TMDB_API_KEY || '6559ac2ee525595dd90a994feb5bcb71';
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500';
 

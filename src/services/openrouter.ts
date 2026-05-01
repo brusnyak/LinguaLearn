@@ -1,7 +1,7 @@
 // OpenRouter AI service for story generation
 // Replaces Google Gemini with free OpenRouter API
 
-const API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || import.meta.env.openrouter_key;
+const API_KEY = import.meta.env.OPENROUTER_API_KEY || import.meta.env.VITE_OPENROUTER_API_KEY || import.meta.env.openrouter_key;
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 if (!API_KEY) {
