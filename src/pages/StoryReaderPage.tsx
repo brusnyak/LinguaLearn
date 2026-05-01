@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Play, Pause, Mic, Plus } from 'lucide-react';
-import { translateText, type Story } from '../services/gemini';
+import { translateText, type Story } from '../services/openrouter';
 import { db } from '../services/db';
 import type { Word } from '../types';
 import { useToast } from '../context/ToastContext';

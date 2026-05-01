@@ -31,10 +31,53 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
+    // Skip cross-origin requests and development server requests
+    if (event.request.url.startsWith('http://localhost') || 
+        event.request.url.startsWith('chrome-extension://') ||
+        !event.request.url.startsWith(self.location.origin)) {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then((response) => {
-                return response || fetch(event.request);
+                // Cache hit - return response
+                if (response) {
+                    return response;
+                }
+
+                // Clone the request since fetch() consumes the request body
+                const fetchRequest = event.request.clone();
+
+                return fetch(fetchRequest).then((response) => {
+                    // Check if valid response
+                    if (!response || response.status !== 200 || response.type !== 'basic') {
+                        return response;
+                    }
+
+                    // Clone the response since it's a stream
+                    const responseToCache = response.clone();
+
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(event.request, responseToCache);
+                        });
+
+                    return response;
+                }).catch((error) => {
+                    console.log('Service Worker: Fetch failed', error);
+                    // Return a basic offline response for HTML requests
+                    if (event.request.headers.get('accept').includes('text/html')) {
+                        return new Response('<h1>Offline</h1><p>Please check your connection</p>', {
+                            status: 503,
+                            statusText: 'Service Unavailable',
+                            headers: new Headers({
+                                'Content-Type': 'text/html'
+                            })
+                        });
+                    }
+                    throw error;
+                });
             })
     );
 });

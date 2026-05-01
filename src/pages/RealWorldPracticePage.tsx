@@ -9,43 +9,49 @@ import { useTTS } from '../hooks/useTTS';
 import { useSound } from '../hooks/useSound';
 import { useToast } from '../context/ToastContext';
 
-// Real-world scenarios for practice
+// Real-world scenarios for practice with appropriate word categories
 const SCENARIOS = [
     {
         id: 'restaurant',
         icon: '🍽️',
         title: 'Restaurant',
-        prompt: (word: string) => `You're at a restaurant. Ask for "${word}" in English. How would you say it?`
+        prompt: (word: string) => `You're at a restaurant. How would you ask for "${word}"?`,
+        wordCategories: ['food', 'drink', 'meal', 'menu', 'table', 'bill', 'water', 'order']
     },
     {
         id: 'hotel',
         icon: '🏨',
         title: 'Hotel',
-        prompt: (word: string) => `You need help at a hotel reception. Ask for "${word}". How would you say it?`
+        prompt: (word: string) => `You're at the hotel reception. How would you ask about "${word}"?`,
+        wordCategories: ['room', 'key', 'reservation', 'check', 'wifi', 'breakfast', 'help', 'night']
     },
     {
         id: 'shopping',
         icon: '🛍️',
         title: 'Shopping',
-        prompt: (word: string) => `You're at a store asking about "${word}". How would you ask?`
+        prompt: (word: string) => `You're shopping. How would you ask about "${word}"?`,
+        wordCategories: ['price', 'size', 'color', 'buy', 'pay', 'bag', 'store', 'product']
     },
     {
         id: 'directions',
         icon: '🚶',
         title: 'Directions',
-        prompt: (word: string) => `You need to ask for directions to "${word}". How would you ask?`
+        prompt: (word: string) => `You need help finding your way. How would you ask for directions to "${word}"?`,
+        wordCategories: ['street', 'address', 'location', 'where', 'near', 'far', 'left', 'right']
     },
     {
         id: 'emergency',
         icon: '🚑',
         title: 'Emergency',
-        prompt: (word: string) => `You need urgent help. Explain you need "${word}". How would you say it?`
+        prompt: (word: string) => `You need urgent help. How would you say you need "${word}"?`,
+        wordCategories: ['help', 'doctor', 'hospital', 'police', 'phone', 'emergency', 'medicine', 'hurt']
     },
     {
         id: 'greeting',
         icon: '👋',
         title: 'Meeting Someone',
-        prompt: (word: string) => `You're meeting someone new. Say "${word}" to greet them.`
+        prompt: (word: string) => `You're meeting someone new. How would you greet them using "${word}"?`,
+        wordCategories: ['hello', 'name', 'nice', 'meet', 'good', 'morning', 'evening', 'welcome']
     },
 ];
 
@@ -66,6 +72,31 @@ const RealWorldPracticePage: React.FC = () => {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [nativeLangCode, setNativeLangCode] = useState('uk-UA');
     const [targetLangCode, setTargetLangCode] = useState('en-US');
+
+    const getWordsForScenario = useCallback((allWords: Word[], scenario: typeof SCENARIOS[0]) => {
+        // Filter words that are appropriate for the scenario
+        const scenarioWords = allWords.filter(word => {
+            const term = word.term.toLowerCase();
+            const translation = word.translation.toLowerCase();
+            
+            // Check if word matches any category for this scenario
+            return scenario.wordCategories.some(category => 
+                term.includes(category.toLowerCase()) || 
+                translation.includes(category.toLowerCase()) ||
+                category.toLowerCase().includes(term) ||
+                category.toLowerCase().includes(translation)
+            );
+        });
+
+        // If not enough scenario-specific words, add some common words
+        const commonWords = allWords.filter(word => 
+            word.term.length >= 2 && word.term.length <= 8 &&
+            !scenarioWords.some(sw => sw.id === word.id)
+        );
+
+        const combined = [...scenarioWords, ...commonWords];
+        return combined.sort(() => 0.5 - Math.random()).slice(0, 5);
+    }, []);
 
     const loadWords = useCallback(async () => {
         setGameState('loading');
@@ -90,17 +121,17 @@ const RealWorldPracticePage: React.FC = () => {
                 setTargetLangCode(langMap[settings.profile.targetLanguage] || 'en-US');
             }
 
-            const shuffled = validWords.sort(() => 0.5 - Math.random()).slice(0, 5);
-            setWords(shuffled);
-
             const scenario = SCENARIOS[Math.floor(Math.random() * SCENARIOS.length)];
+            const selectedWords = getWordsForScenario(validWords, scenario);
+            
+            setWords(selectedWords);
             setCurrentScenario(scenario);
-            setCurrentWord(shuffled[0]);
+            setCurrentWord(selectedWords[0]);
             setGameState('playing');
         } catch (error) {
             console.error('Failed to load words', error);
         }
-    }, [navigate, showToast]);
+    }, [navigate, showToast, getWordsForScenario]);
 
     useEffect(() => {
         loadWords();

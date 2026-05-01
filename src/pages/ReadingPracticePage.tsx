@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Book, Sparkles, ArrowLeft } from 'lucide-react';
 import { db } from '../services/db';
-import { generateStory, STORY_TOPICS, type Story } from '../services/gemini';
+import { generateStory, STORY_TOPICS, type Story } from '../services/openrouter';
 import { useToast } from '../context/ToastContext';
 
 const ReadingPracticePage: React.FC = () => {
@@ -36,8 +36,8 @@ const ReadingPracticePage: React.FC = () => {
     };
 
     const handleGenerateStory = async () => {
-        if (!import.meta.env.VITE_GEMINI_API_KEY) {
-            showToast('Gemini API key not configured in .env file', 'error');
+        if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
+            showToast('OpenRouter API key not configured in .env file', 'error');
             return;
         }
 

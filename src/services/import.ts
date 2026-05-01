@@ -238,6 +238,89 @@ export function importFromExcel(buffer: ArrayBuffer): ImportResult {
 }
 
 /**
+ * Import words from plain text file (one word per line, format: term=translation)
+ */
+export function importFromText(textContent: string): ImportResult {
+    const result: ImportResult = {
+        success: false,
+        words: [],
+        errors: [],
+        imported: 0,
+        skipped: 0,
+    };
+
+    try {
+        const lines = textContent.split(/\r?\n/).filter(line => line.trim());
+        
+        if (lines.length === 0) {
+            result.errors.push('Text file is empty');
+            return result;
+        }
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//')) {
+                continue; // Skip empty lines and comments
+            }
+
+            // Support multiple formats: term=translation, term - translation, term : translation
+            let term = '';
+            let translation = '';
+            
+            if (trimmed.includes('=')) {
+                const parts = trimmed.split('=');
+                term = parts[0].trim();
+                translation = parts.slice(1).join('=').trim();
+            } else if (trimmed.includes('-')) {
+                const parts = trimmed.split('-');
+                term = parts[0].trim();
+                translation = parts.slice(1).join('-').trim();
+            } else if (trimmed.includes(':')) {
+                const parts = trimmed.split(':');
+                term = parts[0].trim();
+                translation = parts.slice(1).join(':').trim();
+            } else if (trimmed.includes('\t')) {
+                const parts = trimmed.split('\t');
+                term = parts[0].trim();
+                translation = parts.slice(1).join('\t').trim();
+            } else {
+                // Single word - use as both term and translation
+                term = trimmed;
+                translation = trimmed;
+            }
+
+            if (!term || !translation) {
+                result.skipped++;
+                continue;
+            }
+
+            const word: Word = {
+                id: uuidv4(),
+                term,
+                translation,
+                category: 'Other',
+                type: 'word',
+                masteryLevel: 0,
+                lastReviewed: 0,
+                timesCorrect: 0,
+                isMastered: false,
+                association: '',
+                createdAt: Date.now(),
+            };
+
+            result.words.push(word);
+            result.imported++;
+        }
+
+        result.success = result.imported > 0;
+    } catch (error: any) {
+        result.errors.push('Failed to parse text file: ' + error.message);
+    }
+
+    return result;
+}
+
+/**
  * Import from file by extension
  */
 export async function importFromFile(file: File): Promise<ImportResult> {
@@ -249,11 +332,24 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     } else if (extension === 'xlsx' || extension === 'xls') {
         const buffer = await file.arrayBuffer();
         return importFromExcel(buffer);
+    } else if (extension === 'txt' || extension === 'text') {
+        const content = await file.text();
+        return importFromText(content);
+    } else if (extension === 'docx') {
+        // For DOCX files, we'll need to extract text first
+        // For now, return an error suggesting conversion to txt
+        return {
+            success: false,
+            words: [],
+            errors: ['DOCX files not directly supported. Please save as TXT or CSV format, or copy-paste the content.'],
+            imported: 0,
+            skipped: 0,
+        };
     } else {
         return {
             success: false,
             words: [],
-            errors: ['Unsupported file format. Please use CSV or Excel (.xlsx, .xls) files.'],
+            errors: ['Unsupported file format. Please use CSV, Excel (.xlsx, .xls), or text (.txt) files.'],
             imported: 0,
             skipped: 0,
         };
@@ -269,6 +365,26 @@ export function createCSVTemplate(): string {
         'Hello,Привіт,Greetings,Think of heavily - says hi',
         'Goodbye,До побачення,Farewells,',
         'Thank you,Дякую,Polite expressions,Similar to dank'
+    ];
+    return lines.join('\n');
+}
+
+/**
+ * Create a sample text template
+ */
+export function createTextTemplate(): string {
+    const lines = [
+        '# Word list - supported formats:',
+        '# hello=привіт',
+        '# goodbye - до побачення',
+        '# thank you : дякую',
+        '',
+        'Hello=Привіт',
+        'Goodbye-До побачення',
+        'Thank you:Дякую',
+        'Please=Будь ласка',
+        'Yes=Так',
+        'No=Ні'
     ];
     return lines.join('\n');
 }
