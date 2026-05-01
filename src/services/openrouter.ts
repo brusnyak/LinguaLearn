@@ -170,6 +170,55 @@ export async function translateText(text: string, fromLanguage: string, toLangua
 }
 
 /**
+ * Generate a memory association for a word using OpenRouter AI
+ */
+export async function generateAssociation(word: string, translation: string): Promise<string> {
+    if (!API_KEY) {
+        return `Think of "${translation}" when you see "${word}".`;
+    }
+
+    const prompt = `Create a short, memorable memory association (mnemonic) to help remember that the English word "${word}" means "${translation}".
+
+Requirements:
+- Keep it under 100 characters
+- Make it vivid, funny, or surprising
+- Use the sounds or spelling of the words
+- Provide ONLY the association text, nothing else
+
+Example 1: Word "cat" = "кіт" (Ukrainian) → "A CAT says 'кіт-кіт'"
+Example 2: Word "apple" = "яблуко" → "An APPLE a day keeps the 'ябеда' away"`;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'LinguaLearn',
+            },
+            body: JSON.stringify({
+                model: 'google/gemini-2.0-flash-exp-1219',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 200,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`OpenRouter error: ${error}`);
+        }
+
+        const data = await response.json();
+        const association = data.choices?.[0]?.message?.content?.trim() || '';
+        return association || `Think of "${translation}" when you see "${word}".`;
+    } catch (error) {
+        console.error('Error generating association:', error);
+        return `Think of "${translation}" when you see "${word}".`;
+    }
+}
+
+/**
  * Get story topics suggestions
  */
 export const STORY_TOPICS = [

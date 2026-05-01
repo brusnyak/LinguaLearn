@@ -22,10 +22,23 @@ const VocabDungeonPage: React.FC = () => {
     const [gameState, setGameState] = useState<'entrance' | 'playing' | 'won' | 'lost'>('entrance');
     const [feedback, setFeedback] = useState<'none' | 'correct' | 'wrong'>('none');
     const [hitEffect, setHitEffect] = useState<'none' | 'damage' | 'heal'>('none');
+    const [targetLangCode, setTargetLangCode] = useState('en-US');
 
     useEffect(() => {
         loadProgress();
+        loadSettings();
     }, []);
+
+    const loadSettings = async () => {
+        const settings = await db.getSettings();
+        if (settings?.profile?.targetLanguage) {
+            const langMap: Record<string, string> = {
+                'Ukrainian': 'uk-UA', 'English': 'en-US', 'Spanish': 'es-ES',
+                'French': 'fr-FR', 'German': 'de-DE',
+            };
+            setTargetLangCode(langMap[settings.profile.targetLanguage] || 'en-US');
+        }
+    };
 
     useEffect(() => {
         if (hitEffect !== 'none') {
@@ -93,7 +106,7 @@ const VocabDungeonPage: React.FC = () => {
         setFeedback('none');
         
         // Speak the new word
-        speak(randomWord.term, 'en-US');
+        speak(randomWord.term, targetLangCode);
     };
 
     const handleAttack = async (selectedOption: string) => {

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sword, Layers, Trophy, Puzzle } from 'lucide-react';
+import { Sword, Layers, Trophy, Puzzle, Globe } from 'lucide-react';
 import { getXPInfo } from '../services/xp';
 
 const GamesPage: React.FC = () => {
@@ -49,6 +49,14 @@ const GamesPage: React.FC = () => {
             icon: Puzzle,
             color: 'from-blue-400 to-cyan-500',
             path: '/games/word-builder'
+        },
+        {
+            id: 'real-world',
+            title: 'Real World Practice',
+            description: 'Practice real-life scenarios: restaurant, shopping, directions, and more.',
+            icon: Globe,
+            color: 'from-pink-400 to-rose-500',
+            path: '/games/real-world'
         }
     ];
 

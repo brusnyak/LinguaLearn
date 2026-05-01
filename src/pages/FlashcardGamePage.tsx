@@ -21,6 +21,8 @@ const FlashcardGamePage: React.FC = () => {
     const [showTutorial, setShowTutorial] = useState(false);
     const [autoReadEnabled, setAutoReadEnabled] = useState(true);
     const [direction, setDirection] = useState(0);
+    const [nativeLangCode, setNativeLangCode] = useState('uk-UA');
+    const [targetLangCode, setTargetLangCode] = useState('en-US');
 
     // Load words on mount
     useEffect(() => {
@@ -61,6 +63,17 @@ const FlashcardGamePage: React.FC = () => {
             if (settings && settings.autoReadFlashcards !== undefined) {
                 setAutoReadEnabled(settings.autoReadFlashcards);
             }
+            if (settings?.profile?.nativeLanguage) {
+                const langMap: Record<string, string> = {
+                    'Ukrainian': 'uk-UA',
+                    'English': 'en-US',
+                    'Spanish': 'es-ES',
+                    'French': 'fr-FR',
+                    'German': 'de-DE',
+                };
+                setNativeLangCode(langMap[settings.profile.nativeLanguage] || 'uk-UA');
+                setTargetLangCode(langMap[settings.profile.targetLanguage] || 'en-US');
+            }
         } catch (error) {
             console.error('Failed to load settings:', error);
         }
@@ -72,7 +85,7 @@ const FlashcardGamePage: React.FC = () => {
     useEffect(() => {
         if (autoReadEnabled && currentWord && !isFlipped && !loading && !finished) {
             const timer = setTimeout(() => {
-                speak(currentWord.term, 'en-US');
+                speak(currentWord.term, targetLangCode);
             }, 500);
             return () => clearTimeout(timer);
         }
@@ -82,7 +95,7 @@ const FlashcardGamePage: React.FC = () => {
     useEffect(() => {
         if (autoReadEnabled && currentWord && isFlipped && !loading && !finished) {
             const timer = setTimeout(() => {
-                speak(currentWord.translation, 'uk-UA');
+                speak(currentWord.translation, nativeLangCode);
             }, 300);
             return () => clearTimeout(timer);
         }
@@ -187,7 +200,7 @@ const FlashcardGamePage: React.FC = () => {
                             {/* Front */}
                             <div className="absolute inset-0 [backface-visibility:hidden] bg-[var(--color-bg-card)] rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 border-2 border-transparent group-hover:border-[var(--color-primary)] transition-colors">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); speak(currentWord.term, 'en-US'); }}
+                                    onClick={(e) => { e.stopPropagation(); speak(currentWord.term, targetLangCode); }}
                                     className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
                                 >
                                     <Volume2 size={24} />
@@ -202,7 +215,7 @@ const FlashcardGamePage: React.FC = () => {
                             {/* Back */}
                             <div className="absolute inset-0 [backface-visibility:hidden] bg-[var(--color-primary)] text-white rounded-2xl shadow-xl flex flex-col items-center justify-center p-8 [transform:rotateY(180deg)]">
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); speak(currentWord.translation, 'uk-UA'); }}
+                                    onClick={(e) => { e.stopPropagation(); speak(currentWord.translation, nativeLangCode); }}
                                     className="absolute top-4 right-4 p-2 rounded-full hover:bg-white/20 transition-colors"
                                 >
                                     <Volume2 size={24} />

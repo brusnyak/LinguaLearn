@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Trophy } from 'lucide-react';
 import { db } from '../services/db';
@@ -25,12 +25,12 @@ const WordMatchPage: React.FC = () => {
     const [matches, setMatches] = useState(0);
     const [timeElapsed, setTimeElapsed] = useState(0);
     const [gameState, setGameState] = useState<'loading' | 'playing' | 'won'>('loading');
-    const [timerInterval, setTimerInterval] = useState<number | null>(null);
+    const timerRef = useRef<number | null>(null);
 
     useEffect(() => {
         startGame();
         return () => {
-            if (timerInterval) clearInterval(timerInterval);
+            if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
 
@@ -78,10 +78,10 @@ const WordMatchPage: React.FC = () => {
             setTimeElapsed(0);
 
             // Start timer
-            const interval = setInterval(() => {
+            if (timerRef.current) clearInterval(timerRef.current);
+            timerRef.current = window.setInterval(() => {
                 setTimeElapsed(prev => prev + 1);
             }, 1000);
-            setTimerInterval(interval);
         } catch (error) {
             console.error("Failed to start game", error);
         }
@@ -125,7 +125,7 @@ const WordMatchPage: React.FC = () => {
 
                 // Check if game is won
                 if (matches + 1 === 6) {
-                    if (timerInterval) clearInterval(timerInterval);
+                    if (timerRef.current) clearInterval(timerRef.current);
                     setGameState('won');
                     play('levelUp');
                 }

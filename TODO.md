@@ -1,99 +1,58 @@
-# LinguaLearn Update Plan
+# LinguaLearn Update Plan - 2024
 
-## Phase 1: Critical Fixes
+## Current Status: ✅ Most Features Implemented
 
-### 1.1 DB Version Mismatch Fix
+## Phase 1: Fix Warnings & Dependencies (In Progress)
 
-- [x] Understand the issue: App uses version 3, cache has version 5
-- [x] Fix: Update db.ts to use version 5 consistently
-- [ ] Fix: Ensure all IndexedDB opens use version 5
+### 1.1 Update Browserslist Database
 
-### 1.2 Fix FlashcardGame Hooks Issue
+- [x] Run update-browserslist-db
 
-- [ ] Fix: Ensure hooks are called in consistent order
-- [ ] Fix: Add boundaries to prevent crashes
+### 1.2 Update baseline-browser-mapping
 
-### 1.3 Fix Login/Auth DB Loading
+- [x] Install baseline-browser-mapping@latest
 
-- [ ] Fix: Update auth.ts to use proper DB version
+## Phase 2: Word Builder Improvements (In Progress)
 
-## Phase 2: API Integration
+### 2.1 Show Word Count (X/5 words remaining)
 
-### 2.1 Switch from Google Gemini to OpenRouter
+- [x] Add remaining words counter to header
 
-- [ ] Install openrouter SDK
-- [ ] Create openrouter service
-- [ ] Update gemini.ts to use OpenRouter
-- [ ] Handle story generation with OpenRouter
+### 2.2 Show Translation Clearly
 
-### 2.2 Keep Translation Fallbacks
+- [x] Add "Translate to English" label
 
-- [ ] Maintain LibreTranslate, MyMemory, Google fallbacks
+### 2.3 Tighten Validation
 
-## Phase 3: Excel/CSV Import
+- [x] Reject phrases, accept only single words (3-15 letters)
 
-### 3.1 File Import Service
+## Phase 3: Real World Practice Enhancements
 
-- [ ] Create import service for CSV
-- [ ] Create import service for XLSX
-- [ ] Handle both term/translation and full word objects
+### 3.1 Scenario-Based Exercises
 
-### 3.2 Import UI
+- [x] Already implemented with 6 scenarios
 
-- [ ] Add import button to Dictionary
-- [ ] Add file picker (CSV/XLSX)
-- [ ] Show import preview
-- [ ] Confirm and save
+### 3.2 More Context-Aware
 
-## Phase 4: New Exercises
+- [x] Added scenario prompts per word
 
-### 4.1 Real-World Training Exercises
+## Phase 4: Test Import
 
-- [ ] Scenario-based exercises
-- [ ] Context-aware translations
-- [ ] Situational phrases
+### 4.1 CSV/XLSX Import
 
-### 4.2 Exercise Types
+- [x] Import service fully implemented
+- [x] Dictionary page has import UI
+- [ ] Test with actual files
 
-- [ ] Restaurant/Food ordering
-- [ ] Directions/Transportation
-- [ ] Shopping
-- [ ] Social interactions
-
-## Phase 5: UI Updates
-
-### 5.1 Word Builder Fixes
-
-- [ ] Show word count (remaining/total)
-- [ ] Show translation clearly in English
-- [ ] Fix error on last word completion
-- [ ] Better hint system
-
-### 5.2 General UI Improvements
-
-- [ ] Loading states
-- [ ] Error handling
-- [ ] Better feedback
-
-## Phase 6: Testing & Deployment
-
-### 6.1 Local Testing
-
-- [ ] Test all games work
-- [ ] Test import works
-- [ ] Test auth works
-- [ ] Test offline mode
-
-### 6.2 Deploy
+## Phase 5: Deployment
 
 - [ ] Push to GitHub
 - [ ] Deploy to Vercel
-- [ ] Verify production
 
 ---
 
 ## Notes
 
-- OpenRouter key already in .env: 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
-- TMDB key also available
-- Need xlsx library for Excel import
+- OpenRouter already configured (API key in .env as VITE_OPENROUTER_API_KEY)
+- Excel import using xlsx library (already installed)
+- All translations use OpenRouter as primary with fallbacks
