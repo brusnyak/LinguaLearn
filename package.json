@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.105.2",
     "clsx": "^2.1.1",
     "framer-motion": "^12.23.24",
     "idb": "^8.0.3",

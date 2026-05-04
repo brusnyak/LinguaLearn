@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { importFromFile, createCSVTemplate, createTextTemplate, type ImportResult } from '../services/import';
 import type { Word } from '../types';
-import { Search, Plus, Volume2, Upload, X, Check } from 'lucide-react';
+import { Search, Plus, Volume2, Upload, X, Check, Filter } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 
 const DictionaryPage: React.FC = () => {
@@ -12,6 +12,7 @@ const DictionaryPage: React.FC = () => {
     const [words, setWords] = useState<Word[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [loading, setLoading] = useState(true);
+    const [selectedCategory, setSelectedCategory] = useState<string>('all');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -76,7 +77,7 @@ const DictionaryPage: React.FC = () => {
         const template = templateFormat === 'csv' ? createCSVTemplate() : createTextTemplate();
         const mimeType = templateFormat === 'csv' ? 'text/csv' : 'text/plain';
         const filename = templateFormat === 'csv' ? 'word-template.csv' : 'word-template.txt';
-        
+
         const blob = new Blob([template], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -100,10 +101,15 @@ const DictionaryPage: React.FC = () => {
         }
     };
 
-    const filteredWords = words.filter(word =>
-        word.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        word.translation.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    // Get unique categories
+    const categories = ['all', ...Array.from(new Set(words.map(w => w.category))).sort()];
+
+    const filteredWords = words.filter(word => {
+        const matchesSearch = word.term.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            word.translation.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesCategory = selectedCategory === 'all' || word.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+    });
 
     const groupedWords = filteredWords.reduce((acc, word) => {
         const letter = word.term[0].toUpperCase();
@@ -143,15 +149,36 @@ const DictionaryPage: React.FC = () => {
                 className="hidden"
             />
 
-            <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                    type="text"
-                    placeholder="Search words..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border-none bg-[var(--color-bg-card)] shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] outline-none transition-all"
-                />
+            {/* Search and Filter */}
+            <div className="space-y-3">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                    <input
+                        type="text"
+                        placeholder="Search words..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 rounded-xl border-none bg-[var(--color-bg-card)] shadow-sm focus:ring-2 focus:ring-[var(--color-primary)] outline-none transition-all"
+                    />
+                </div>
+
+                {/* Category Filter */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2">
+                    <Filter size={16} className="text-[var(--color-text-muted)] flex-shrink-0" />
+                    {categories.map(cat => (
+                        <button
+                            key={cat}
+                            onClick={() => setSelectedCategory(cat)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                                selectedCategory === cat
+                                    ? 'bg-[var(--color-primary)] text-white'
+                                    : 'bg-[var(--color-bg-card)] text-[var(--color-text-muted)] hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            {cat === 'all' ? 'All' : cat}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {loading ? (
@@ -160,13 +187,16 @@ const DictionaryPage: React.FC = () => {
                 <div className="space-y-6 pb-20">
                     {sortedLetters.length === 0 ? (
                         <div className="text-center py-10 text-[var(--color-text-muted)]">
-                            No words found. Try adding some!
+                            No words found. Try adjusting your filters!
                         </div>
                     ) : (
                         sortedLetters.map(letter => (
                             <div key={letter} className="bg-[var(--color-bg-card)] rounded-xl overflow-hidden shadow-sm">
                                 <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-100 dark:border-gray-800">
                                     <span className="font-bold text-[var(--color-primary)]">{letter}</span>
+                                    <span className="text-xs text-[var(--color-text-muted)] ml-2">
+                                        ({groupedWords[letter].length} words)
+                                    </span>
                                 </div>
                                 <div className="divide-y divide-gray-100 dark:divide-gray-800">
                                     {groupedWords[letter].map(word => (
@@ -179,6 +209,9 @@ const DictionaryPage: React.FC = () => {
                                                 <div className="font-medium text-lg flex items-center gap-2">
                                                     {word.isMastered && <span className="text-yellow-400" title="Mastered!">⭐</span>}
                                                     {word.term}
+                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-200 dark:bg-gray-700 text-[var(--color-text-muted)]">
+                                                        {word.category}
+                                                    </span>
                                                 </div>
                                                 <div className="text-[var(--color-text-muted)] text-sm flex items-center gap-2">
                                                     {word.translation}
@@ -286,15 +319,15 @@ const DictionaryPage: React.FC = () => {
                             <div className="text-center py-8">
                                 <Upload size={48} className="mx-auto mb-4 text-gray-400" />
                                 <p className="mb-4">Select a CSV, Excel, or text file to import words</p>
-                                
+
                                 <div className="mb-4">
                                     <label className="text-sm text-gray-600 dark:text-gray-400 mb-2 block">Template Format:</label>
                                     <div className="flex justify-center gap-2">
                                         <button
                                             onClick={() => setTemplateFormat('csv')}
                                             className={`px-3 py-1 text-sm rounded-lg border ${
-                                                templateFormat === 'csv' 
-                                                    ? 'bg-purple-500 text-white border-purple-500' 
+                                                templateFormat === 'csv'
+                                                    ? 'bg-purple-500 text-white border-purple-500'
                                                     : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
                                             }`}
                                         >
@@ -303,8 +336,8 @@ const DictionaryPage: React.FC = () => {
                                         <button
                                             onClick={() => setTemplateFormat('text')}
                                             className={`px-3 py-1 text-sm rounded-lg border ${
-                                                templateFormat === 'text' 
-                                                    ? 'bg-purple-500 text-white border-purple-500' 
+                                                templateFormat === 'text'
+                                                    ? 'bg-purple-500 text-white border-purple-500'
                                                     : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
                                             }`}
                                         >
@@ -312,7 +345,7 @@ const DictionaryPage: React.FC = () => {
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <button
                                     onClick={handleDownloadTemplate}
                                     className="text-purple-500 hover:underline text-sm"

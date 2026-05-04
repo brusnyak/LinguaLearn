@@ -18,6 +18,8 @@ import StoryReaderPage from './pages/StoryReaderPage';
 import WordBuilderPage from './pages/WordBuilderPage';
 import RealWorldPracticePage from './pages/RealWorldPracticePage';
 import ListeningChallengePage from './pages/ListeningChallengePage';
+import StatisticsPage from './pages/StatisticsPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
@@ -87,6 +89,8 @@ function App() {
               <Route path="/mastered" element={<Layout><MasteredWordsPage /></Layout>} />
               <Route path="/reading" element={<Layout><ReadingPracticePage /></Layout>} />
               <Route path="/reading/:storyId" element={<Layout><StoryReaderPage /></Layout>} />
+              <Route path="/statistics" element={<Layout><StatisticsPage /></Layout>} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />

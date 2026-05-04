@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { Word, UserSettings, User, UserProgress } from '../types';
+import type { Word, UserSettings, UserProgress } from '../types';
 import { getCurrentUserId } from './auth';
+import { isSupabaseConfigured, syncWordsToSupabase, syncWordsFromSupabase, syncSettingsToSupabase, syncSettingsFromSupabase, syncProgressToSupabase, syncProgressFromSupabase } from './supabase';
 
 interface LinguaDB extends DBSchema {
     words: {
@@ -14,7 +15,7 @@ interface LinguaDB extends DBSchema {
     };
     users: {
         key: string;
-        value: User;
+        value: any;
     };
     progress: {
         key: string;
@@ -33,7 +34,7 @@ interface LinguaDB extends DBSchema {
 }
 
 const DB_NAME = 'lingua-learn-db';
-const DB_VERSION = 5; // Incremented to force clean migration (added association field)
+const DB_VERSION = 5;
 
 let dbPromise: Promise<IDBPDatabase<LinguaDB>>;
 
@@ -41,7 +42,6 @@ export const initDB = () => {
     if (!dbPromise) {
         dbPromise = openDB<LinguaDB>(DB_NAME, DB_VERSION, {
             upgrade(db) {
-                // Words Store
                 if (!db.objectStoreNames.contains('words')) {
                     const wordStore = db.createObjectStore('words', { keyPath: 'id' });
                     wordStore.createIndex('by-term', 'term');
@@ -49,22 +49,18 @@ export const initDB = () => {
                     wordStore.createIndex('by-userId', 'userId');
                 }
 
-                // Settings Store
                 if (!db.objectStoreNames.contains('settings')) {
                     db.createObjectStore('settings');
                 }
 
-                // Users Store (new in v2)
                 if (!db.objectStoreNames.contains('users')) {
                     db.createObjectStore('users', { keyPath: 'id' });
                 }
 
-                // Progress Store (new in v2)
                 if (!db.objectStoreNames.contains('progress')) {
                     db.createObjectStore('progress');
                 }
 
-                // Translations Store (new in v4)
                 if (!db.objectStoreNames.contains('translations')) {
                     db.createObjectStore('translations');
                 }
@@ -80,17 +76,15 @@ export const db = {
             const db = await initDB();
             const userId = getCurrentUserId();
             const allWords = await db.getAll('words');
-            
-            // Filter by userId if logged in and validate data
-            const filteredWords = userId 
+
+            const filteredWords = userId
                 ? allWords.filter(w => w.userId === userId)
                 : allWords;
-                
-            // Validate word objects and filter out corrupted data
-            return filteredWords.filter(word => 
-                word && 
-                typeof word.id === 'string' && 
-                typeof word.term === 'string' && 
+
+            return filteredWords.filter(word =>
+                word &&
+                typeof word.id === 'string' &&
+                typeof word.term === 'string' &&
                 typeof word.translation === 'string' &&
                 word.term.trim().length > 0 &&
                 word.translation.trim().length > 0
@@ -103,15 +97,13 @@ export const db = {
 
     async addWord(word: Word): Promise<string> {
         try {
-            // Validate word data
             if (!word || !word.term || !word.translation || word.term.trim().length === 0 || word.translation.trim().length === 0) {
                 throw new Error('Invalid word data: term and translation are required');
             }
-            
+
             const db = await initDB();
             const userId = getCurrentUserId();
-            
-            // Create a clean word object
+
             const cleanWord: Word = {
                 id: word.id || `word-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 term: word.term.trim(),
@@ -126,8 +118,14 @@ export const db = {
                 createdAt: word.createdAt || Date.now(),
                 userId: userId || word.userId
             };
-            
+
             await db.put('words', cleanWord);
+
+            // Sync to Supabase if configured
+            if (isSupabaseConfigured()) {
+                await syncWordsToSupabase([cleanWord]);
+            }
+
             return cleanWord.id;
         } catch (error) {
             console.error('Failed to add word:', error);
@@ -139,6 +137,14 @@ export const db = {
         try {
             const db = await initDB();
             await db.delete('words', id);
+
+            // Sync deletion to Supabase if configured
+            if (isSupabaseConfigured()) {
+                const supabase = await import('./supabase').then(m => m.getSupabase());
+                if (supabase) {
+                    await supabase.from('words').delete().eq('id', id);
+                }
+            }
         } catch (error) {
             console.error('Failed to delete word:', error);
             throw error;
@@ -152,9 +158,14 @@ export const db = {
             if (!existingWord) {
                 throw new Error('Word not found');
             }
-            
+
             const updatedWord = { ...existingWord, ...updates };
             await db.put('words', updatedWord);
+
+            // Sync to Supabase if configured
+            if (isSupabaseConfigured()) {
+                await syncWordsToSupabase([updatedWord]);
+            }
         } catch (error) {
             console.error('Failed to update word:', error);
             throw error;
@@ -167,7 +178,7 @@ export const db = {
             const words = await db.getAll('words');
             const settings = await db.get('settings', 'user-settings');
             const progress = await db.get('progress', 'progress');
-            
+
             const backup = {
                 version: DB_VERSION,
                 timestamp: Date.now(),
@@ -175,7 +186,7 @@ export const db = {
                 settings,
                 progress
             };
-            
+
             return JSON.stringify(backup);
         } catch (error) {
             console.error('Failed to backup data:', error);
@@ -187,30 +198,35 @@ export const db = {
         try {
             const backup = JSON.parse(backupData);
             const db = await initDB();
-            
+
             const tx = db.transaction(['words', 'settings', 'progress'], 'readwrite');
-            
-            // Clear existing data
+
             await tx.objectStore('words').clear();
             await tx.objectStore('settings').clear();
             await tx.objectStore('progress').clear();
-            
-            // Restore data
+
             if (backup.words && Array.isArray(backup.words)) {
                 for (const word of backup.words) {
                     await tx.objectStore('words').put(word);
                 }
             }
-            
+
             if (backup.settings) {
                 await tx.objectStore('settings').put(backup.settings, 'user-settings');
             }
-            
+
             if (backup.progress) {
                 await tx.objectStore('progress').put(backup.progress, 'progress');
             }
-            
+
             await tx.done;
+
+            // Sync to Supabase if configured
+            if (isSupabaseConfigured() && backup.words) {
+                await syncWordsToSupabase(backup.words);
+                if (backup.settings) await syncSettingsToSupabase(backup.settings);
+                if (backup.progress) await syncProgressToSupabase(backup.progress);
+            }
         } catch (error) {
             console.error('Failed to restore data:', error);
             throw error;
@@ -225,6 +241,11 @@ export const db = {
     async saveSettings(settings: UserSettings): Promise<void> {
         const db = await initDB();
         await db.put('settings', settings, 'user-settings');
+
+        // Sync to Supabase if configured
+        if (isSupabaseConfigured()) {
+            await syncSettingsToSupabase(settings);
+        }
     },
 
     async seedInitialData(words: Word[]) {
@@ -252,6 +273,11 @@ export const db = {
         const userId = getCurrentUserId();
         const key = userId ? `progress-${userId}` : 'progress';
         await db.put('progress', progress, key);
+
+        // Sync to Supabase if configured
+        if (isSupabaseConfigured()) {
+            await syncProgressToSupabase(progress);
+        }
     },
 
     async getCachedTranslation(text: string, from: string, to: string): Promise<string | null> {
@@ -259,7 +285,6 @@ export const db = {
         const key = `${text.toLowerCase().trim()}|${from}|${to}`;
         const cached = await db.get('translations', key);
         if (cached) {
-            // Cache valid for 30 days
             if (Date.now() - cached.timestamp < 30 * 24 * 60 * 60 * 1000) {
                 return cached.translation;
             } else {
@@ -280,4 +305,46 @@ export const db = {
             timestamp: Date.now(),
         }, key);
     },
+
+    // New: Sync all local data to Supabase
+    async syncToSupabase(): Promise<void> {
+        if (!isSupabaseConfigured()) return;
+
+        const words = await this.getWords();
+        const settings = await this.getSettings();
+        const progress = await this.getProgress();
+
+        if (words.length > 0) await syncWordsToSupabase(words);
+        if (settings) await syncSettingsToSupabase(settings);
+        if (progress) await syncProgressToSupabase(progress);
+    },
+
+    // New: Pull data from Supabase to local
+    async syncFromSupabase(): Promise<void> {
+        if (!isSupabaseConfigured()) return;
+
+        const remoteWords = await syncWordsFromSupabase();
+        const remoteSettings = await syncSettingsFromSupabase();
+        const remoteProgress = await syncProgressFromSupabase();
+
+        const db = await initDB();
+
+        if (remoteWords.length > 0) {
+            const tx = db.transaction('words', 'readwrite');
+            for (const word of remoteWords) {
+                await tx.store.put(word);
+            }
+            await tx.done;
+        }
+
+        if (remoteSettings) {
+            await db.put('settings', remoteSettings, 'user-settings');
+        }
+
+        if (remoteProgress) {
+            const userId = getCurrentUserId();
+            const key = userId ? `progress-${userId}` : 'progress';
+            await db.put('progress', remoteProgress, key);
+        }
+    }
 };

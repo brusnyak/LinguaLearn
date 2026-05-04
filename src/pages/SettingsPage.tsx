@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Info, User, Save, Bell, LogOut } from 'lucide-react';
+import { Trash2, Info, User, Save, Bell, LogOut, Download, Upload, Database, Github } from 'lucide-react';
 import AppearanceSettings from '../components/AppearanceSettings';
-import { db } from '../services/db';
+import { db, initDB } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
-import { getCurrentUser, logoutUser } from '../services/auth';
+import { getCurrentUser, logoutUser, loginWithGitHub, isUsingSupabaseAuth } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
 
 const SettingsPage: React.FC = () => {
     const { showToast } = useToast();
@@ -19,6 +20,8 @@ const SettingsPage: React.FC = () => {
     const [notificationTime, setNotificationTime] = useState('19:00');
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
     const [autoReadFlashcards, setAutoReadFlashcards] = useState(true);
+    const [isExporting, setIsExporting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -112,18 +115,85 @@ const SettingsPage: React.FC = () => {
         showToast('Game settings saved!', 'success');
     };
 
+    const handleExportData = async () => {
+        setIsExporting(true);
+        try {
+            const backup = await db.backupData();
+            const blob = new Blob([backup], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lingualearn-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('Backup exported successfully!', 'success');
+        } catch (error) {
+            showToast('Failed to export data', 'error');
+            console.error(error);
+        } finally {
+            setIsExporting(false);
+        }
+    };
+
+    const handleImportData = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) return;
+
+            setIsImporting(true);
+            try {
+                const text = await file.text();
+                await db.restoreData(text);
+                showToast('Backup restored successfully! Reloading...', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } catch (error) {
+                showToast('Failed to import data. Check file format.', 'error');
+                console.error(error);
+            } finally {
+                setIsImporting(false);
+            }
+        };
+        input.click();
+    };
+
+    const handleSyncToSupabase = async () => {
+        try {
+            await db.syncToSupabase();
+            showToast('Data synced to cloud!', 'success');
+        } catch (error) {
+            showToast('Sync failed. Check Supabase config.', 'error');
+        }
+    };
+
+    const handleSyncFromSupabase = async () => {
+        try {
+            await db.syncFromSupabase();
+            showToast('Data synced from cloud! Reloading...', 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (error) {
+            showToast('Sync failed. Check Supabase config.', 'error');
+        }
+    };
+
     const handleResetData = async () => {
         if (confirm("Are you sure? This will delete all your progress and words, and reset to the initial set.")) {
             try {
-                // In a real app, we'd delete the DB or clear stores.
-                // For now, let's just re-seed.
-                // A proper reset would involve clearing the object store first.
-                // Since our db wrapper doesn't expose clear, we might need to add it or just rely on overwrite?
-                // Actually db.put overwrites by key. To reset, we need to clear.
-                // Let's just alert for now as 'clear' isn't implemented in our simple wrapper.
-                alert("Reset functionality would wipe your IndexedDB data here. (Not fully implemented in this demo)");
+                const dbInstance = await initDB();
+                const tx = dbInstance.transaction(['words', 'settings', 'progress'], 'readwrite');
+                await tx.objectStore('words').clear();
+                await tx.objectStore('settings').clear();
+                await tx.objectStore('progress').clear();
+                await tx.done;
+                showToast('Data reset! Reloading...', 'success');
+                setTimeout(() => window.location.reload(), 1500);
             } catch (error) {
                 console.error("Reset failed", error);
+                showToast('Reset failed', 'error');
             }
         }
     };
@@ -132,6 +202,14 @@ const SettingsPage: React.FC = () => {
         if (confirm('Are you sure you want to logout?')) {
             logoutUser();
             window.location.href = '/login';
+        }
+    };
+
+    const handleGitHubLogin = async () => {
+        try {
+            await loginWithGitHub();
+        } catch (error: any) {
+            showToast(error.message || 'GitHub login failed', 'error');
         }
     };
 
@@ -151,6 +229,17 @@ const SettingsPage: React.FC = () => {
                         </label>
                         <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
                     </div>
+
+                    {isSupabaseConfigured() && !isUsingSupabaseAuth() && (
+                        <button
+                            onClick={handleGitHubLogin}
+                            className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Github size={20} />
+                            Login with GitHub
+                        </button>
+                    )}
+
                     <button
                         onClick={handleLogout}
                         className="w-full md:w-auto px-6 py-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg font-bold hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-2"
@@ -331,6 +420,60 @@ const SettingsPage: React.FC = () => {
 
             <AppearanceSettings />
 
+            {/* Cloud Sync Section */}
+            {isSupabaseConfigured() && (
+                <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
+                    <div className="flex items-center gap-2 text-[var(--color-primary)]">
+                        <Database size={24} />
+                        <h3 className="text-lg font-bold">Cloud Sync</h3>
+                    </div>
+                    <p className="text-sm text-[var(--color-text-muted)]">
+                        Sync your data across devices using Supabase.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                            onClick={handleSyncToSupabase}
+                            className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Upload size={18} /> Sync to Cloud
+                        </button>
+                        <button
+                            onClick={handleSyncFromSupabase}
+                            className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2"
+                        >
+                            <Download size={18} /> Sync from Cloud
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Backup & Restore */}
+            <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
+                <div className="flex items-center gap-2 text-[var(--color-primary)]">
+                    <Download size={24} />
+                    <h3 className="text-lg font-bold">Backup & Restore</h3>
+                </div>
+                <p className="text-sm text-[var(--color-text-muted)]">
+                    Export your data as a JSON file or restore from a previous backup.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <button
+                        onClick={handleExportData}
+                        disabled={isExporting}
+                        className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        <Download size={18} /> {isExporting ? 'Exporting...' : 'Export Backup'}
+                    </button>
+                    <button
+                        onClick={handleImportData}
+                        disabled={isImporting}
+                        className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-secondary)] rounded-lg font-bold hover:bg-[var(--color-secondary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                        <Upload size={18} /> {isImporting ? 'Importing...' : 'Import Backup'}
+                    </button>
+                </div>
+            </div>
+
             {/* About Section */}
             <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center gap-2 text-[var(--color-primary)]">
@@ -348,6 +491,7 @@ const SettingsPage: React.FC = () => {
                         <li>Spaced Repetition Flashcards</li>
                         <li>Offline Support</li>
                         <li>Dark/Light Theme (Purple & Orange)</li>
+                        {isSupabaseConfigured() && <li>Cloud Sync with Supabase</li>}
                     </ul>
                 </div>
             </div>
@@ -356,13 +500,13 @@ const SettingsPage: React.FC = () => {
             <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
                 <h3 className="text-lg font-bold">Data Management</h3>
                 <p className="text-sm text-[var(--color-text-muted)]">
-                    Your data is stored locally on your device.
+                    Permanently delete all your local data and reset the app.
                 </p>
                 <button
                     onClick={handleResetData}
                     className="w-full p-3 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
                 >
-                    <Trash2 size={18} /> Reset Progress
+                    <Trash2 size={18} /> Reset All Data
                 </button>
             </div>
 
