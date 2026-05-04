@@ -86,75 +86,12 @@ export async function loginUser(username: string, password: string): Promise<Use
     return await localLogin(username, password);
 }
 
-// Local auth helper
-async function localLogin(username: string, password: string): Promise<User | null> {
-    if (!username || !password) return null;
-
-    const users = await getAllUsers();
-    const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
-
-    if (!user) return null;
-
-    const passwordHash = await hashPassword(password);
-    if (passwordHash !== user.passwordHash) return null;
-
-    user.lastLogin = Date.now();
-    await updateUser(user);
-
-    localStorage.setItem('currentUserId', user.id);
-    return user;
-}
-
-// Login with GitHub
-export async function loginWithGitHub(): Promise<void> {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-    await signInWithGitHub();
-}
-
-// Create new user - supports both Supabase and local auth
-export async function createUser(
+// Local auth helper for createUser
+async function localCreateUser(
     username: string,
     password: string,
     profile: UserProfile
 ): Promise<User> {
-    if (isSupabaseConfigured()) {
-        try {
-            const result = await signUp(username, password);
-            if (!result?.data?.user) throw new Error('User creation failed');
-
-            // Save profile to user_settings
-            const supabase = getSupabase();
-            await supabase!
-                .from('user_settings')
-                .insert({
-                    user_id: result.data.user.id,
-                    profile,
-                    theme: 'system',
-                    notifications_enabled: false,
-                    notification_time: '08:00',
-                    daily_goal: 5,
-                    auto_read_flashcards: false
-                });
-
-            const user: User = {
-                id: result.data.user.id,
-                username,
-                passwordHash: '',
-                profile,
-                createdAt: Date.now(),
-                lastLogin: Date.now()
-            };
-
-            localStorage.setItem('currentUserId', user.id);
-            return user;
-        } catch (err: any) {
-            throw new Error(err.message || 'Failed to create user');
-        }
-    }
-
-    // Fallback to local auth
     if (!username || username.trim().length === 0) throw new Error('Username is required');
     if (!password || password.length < 6) throw new Error('Password must be at least 6 characters');
     if (username.length > 50) throw new Error('Username must be 50 characters or less');
@@ -192,6 +129,83 @@ export async function createUser(
             addRequest.onerror = () => reject(addRequest.error);
         };
     });
+}
+
+// Local auth helper for loginUser
+async function localLogin(username: string, password: string): Promise<User | null> {
+    if (!username || !password) return null;
+
+    const users = await getAllUsers();
+    const user = users.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
+
+    if (!user) return null;
+
+    const passwordHash = await hashPassword(password);
+    if (passwordHash !== user.passwordHash) return null;
+
+    user.lastLogin = Date.now();
+    await updateUser(user);
+
+    localStorage.setItem('currentUserId', user.id);
+    return user;
+}
+
+// Login with GitHub
+export async function loginWithGitHub(): Promise<void> {
+    if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+    }
+    await signInWithGitHub();
+}
+
+// Create new user - supports both Supabase and local auth
+export async function createUser(
+    username: string,
+    password: string,
+    profile: UserProfile
+): Promise<User> {
+    // Try Supabase first if configured
+    if (isSupabaseConfigured()) {
+        try {
+            const result = await signUp(username, password);
+            if (!result?.data?.user) {
+                console.log('Supabase signup returned no user, falling back to local auth...');
+                return await localCreateUser(username, password, profile);
+            }
+
+            // Save profile to user_settings
+            const supabase = getSupabase();
+            await supabase!
+                .from('user_settings')
+                .insert({
+                    user_id: result.data.user.id,
+                    profile,
+                    theme: 'system',
+                    notifications_enabled: false,
+                    notification_time: '08:00',
+                    daily_goal: 5,
+                    auto_read_flashcards: false
+                });
+
+            const user: User = {
+                id: result.data.user.id,
+                username,
+                passwordHash: '',
+                profile,
+                createdAt: Date.now(),
+                lastLogin: Date.now()
+            };
+
+            localStorage.setItem('currentUserId', user.id);
+            return user;
+        } catch (err: any) {
+            console.error('Supabase createUser error:', err.message || err);
+            console.log('Falling back to local auth...');
+        }
+    }
+
+    // Fallback to local auth (or if Supabase not configured)
+    return await localCreateUser(username, password, profile);
 }
 
 // Update user (local only)
