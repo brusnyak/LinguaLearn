@@ -47,10 +47,14 @@ export async function getAllUsers(): Promise<User[]> {
 
 // Login user - supports both Supabase and local auth
 export async function loginUser(username: string, password: string): Promise<User | null> {
+    // Try Supabase first if configured
     if (isSupabaseConfigured()) {
         try {
             const result = await signInWithPassword(username, password);
-            if (!result?.data?.user) return null;
+            if (!result?.data?.user) {
+                // If Supabase returns no user but no error, try local auth
+                return await localLogin(username, password);
+            }
 
             // Get user profile from Supabase
             const supabase = getSupabase();
@@ -71,13 +75,19 @@ export async function loginUser(username: string, password: string): Promise<Use
 
             localStorage.setItem('currentUserId', user.id);
             return user;
-        } catch (err) {
+        } catch (err: any) {
             console.error('Supabase login error:', err);
-            return null;
+            // Fall back to local auth if Supabase fails (wrong key, network, etc.)
+            console.log('Falling back to local auth...');
         }
     }
 
-    // Fallback to local auth
+    // Local auth (or fallback from failed Supabase)
+    return await localLogin(username, password);
+}
+
+// Local auth helper
+async function localLogin(username: string, password: string): Promise<User | null> {
     if (!username || !password) return null;
 
     const users = await getAllUsers();
