@@ -35,6 +35,14 @@ function App() {
       try {
         await db.seedInitialData(INITIAL_WORDS);
 
+        // Skip auth check if on callback route (OAuth processing)
+        const currentPath = window.location.pathname;
+        if (currentPath === '/auth/callback' || currentPath === '/callback') {
+          console.log('On callback route, skipping auth check...');
+          setIsInitialized(true);
+          return;
+        }
+
         // Check if user is logged in
         const currentUser = await getCurrentUser();
 

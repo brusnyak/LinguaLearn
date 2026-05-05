@@ -7,14 +7,14 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 let supabase: SupabaseClient | null = null;
 
 export function getSupabase() {
-  if (!supabase && supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://your-project-ref.supabase.co') {
+  if (!supabase && supabaseUrl && supabaseAnonKey) {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        flowType: 'pkce', // More reliable than implicit
+        flowType: 'implicit', // Use hash fragment - simpler
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
-        storage: window.localStorage // Explicit storage
+        storage: window.localStorage
       }
     });
   }
@@ -22,10 +22,10 @@ export function getSupabase() {
 }
 
 export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://your-project-ref.supabase.co');
+  return !!(supabaseUrl && supabaseAnonKey);
 }
 
-// Google OAuth with PKCE flow
+// Google OAuth - implicit flow (hash fragment)
 export async function signInWithGoogle() {
   const client = getSupabase();
   if (!client) throw new Error('Supabase not configured');
@@ -33,7 +33,7 @@ export async function signInWithGoogle() {
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo: window.location.origin + '/auth/callback'
     }
   });
   
@@ -94,100 +94,87 @@ export async function syncWordsToSupabase(words: Word[]) {
   
   const session = await getCurrentSession();
   if (!session) return;
-    
+  
   const { error } = await client
     .from('words')
     .upsert(words.map(w => ({ ...w, user_id: session.user.id })), { onConflict: 'id' });
-    
+  
   if (error) console.error('Failed to sync words:', error);
 }
 
 export async function syncWordsFromSupabase(): Promise<Word[]> {
   const client = getSupabase();
   if (!client) return [];
-    
+  
   const session = await getCurrentSession();
   if (!session) return [];
-    
+  
   const { data, error } = await client
     .from('words')
     .select('*')
     .eq('user_id', session.user.id);
-    
+  
   if (error) {
     console.error('Failed to fetch words:', error);
     return [];
   }
-    
+  
   return data || [];
 }
 
 export async function syncSettingsToSupabase(settings: UserSettings) {
   const client = getSupabase();
   if (!client) return;
-    
+  
   const session = await getCurrentSession();
-  if (!session) return;
-    
+  if (!session) return;  
   const { error } = await client
     .from('user_settings')
-    .upsert({ ...settings, user_id: session.user.id }, { onConflict: 'user_id' });
-    
+    .upsert({ ...settings, user_id: session.user.id }, { onConflict: 'user_id' });  
   if (error) console.error('Failed to sync settings:', error);
 }
 
 export async function syncSettingsFromSupabase(): Promise<UserSettings | null> {
   const client = getSupabase();
-  if (!client) return null;
-    
+  if (!client) return null;  
   const session = await getCurrentSession();
-  if (!session) return null;
-    
+  if (!session) return null;  
   const { data, error } = await client
     .from('user_settings')
     .select('*')
     .eq('user_id', session.user.id)
-    .single();
-    
+    .single();  
   if (error) {
     if (error.code !== 'PGRST116') console.error('Failed to fetch settings:', error);
     return null;
-  }
-    
+  }  
   return data;
 }
 
 export async function syncProgressToSupabase(progress: UserProgress) {
   const client = getSupabase();
-  if (!client) return;
-    
+  if (!client) return;  
   const session = await getCurrentSession();
-  if (!session) return;
-    
+  if (!session) return;  
   const { error } = await client
     .from('user_progress')
-    .upsert({ ...progress, user_id: session.user.id }, { onConflict: 'user_id' });
-    
+    .upsert({ ...progress, user_id: session.user.id }, { onConflict: 'user_id' });  
   if (error) console.error('Failed to sync progress:', error);
 }
 
 export async function syncProgressFromSupabase(): Promise<UserProgress | null> {
   const client = getSupabase();
-  if (!client) return null;
-    
+  if (!client) return null;  
   const session = await getCurrentSession();
-  if (!session) return null;
-    
+  if (!session) return null;  
   const { data, error } = await client
     .from('user_progress')
     .select('*')
     .eq('user_id', session.user.id)
-    .single();
-    
+    .single();  
   if (error) {
     if (error.code !== 'PGRST116') console.error('Failed to fetch progress:', error);
     return null;
-  }
-    
+  }  
   return data;
 }
