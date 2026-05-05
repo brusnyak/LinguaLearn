@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { User, UserProfile } from '../types';
-import { getSupabase, isSupabaseConfigured, signInWithGitHub, signInWithGoogle, signInWithPassword, signUp, signOut, getCurrentSession } from './supabase';
+import { getSupabase, isSupabaseConfigured, signInWithGoogle, signInWithPassword, signUp, signOut, getCurrentSession } from './supabase';
 
 // Password hashing using Web Crypto API
 export async function hashPassword(password: string): Promise<string> {
@@ -163,14 +163,6 @@ async function localLogin(username: string, password: string): Promise<User | nu
 
     localStorage.setItem('currentUserId', user.id);
     return user;
-}
-
-// Login with GitHub
-export async function loginWithGitHub(): Promise<void> {
-    if (!isSupabaseConfigured()) {
-        throw new Error('Supabase not configured');
-    }
-    await signInWithGitHub();
 }
 
 // Login with Google

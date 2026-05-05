@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Info, User, Save, Bell, LogOut, Download, Upload, Database, Github } from 'lucide-react';
+import { Trash2, Info, User, Save, Bell, LogOut, Download, Upload, Database, Chrome } from 'lucide-react';
 import AppearanceSettings from '../components/AppearanceSettings';
 import { db, initDB } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
-import { getCurrentUser, logoutUser, loginWithGitHub, isUsingSupabaseAuth } from '../services/auth';
+import { getCurrentUser, logoutUser, loginWithGoogle, isUsingSupabaseAuth } from '../services/auth';
 import { isSupabaseConfigured } from '../services/supabase';
 
 const SettingsPage: React.FC = () => {
@@ -221,11 +221,11 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const handleGitHubLogin = async () => {
+    const handleGoogleLogin = async () => {
         try {
-            await loginWithGitHub();
+            await loginWithGoogle();
         } catch (error: any) {
-            showToast(error.message || 'GitHub login failed', 'error');
+            showToast(error.message || 'Google login failed', 'error');
         }
     };
 
@@ -246,13 +246,13 @@ const SettingsPage: React.FC = () => {
                         <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
                     </div>
 
-                    {isSupabaseConfigured() && !isUsingSupabase && (
+            {isSupabaseConfigured() && !isUsingSupabase && (
                         <button
-                            onClick={handleGitHubLogin}
-                            className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                            onClick={handleGoogleLogin}
+                            className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                         >
-                            <Github size={20} />
-                            Login with GitHub
+                            <Chrome size={20} />
+                            Login with Google
                         </button>
                     )}
 
@@ -472,14 +472,14 @@ const SettingsPage: React.FC = () => {
                     ) : (
                         <>
                             <p className="text-sm text-[var(--color-text-muted)]">
-                                Login with GitHub to enable cloud sync across devices.
+                                Login with Google to enable cloud sync across devices.
                             </p>
                             <button
-                                onClick={handleGitHubLogin}
-                                className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                                onClick={handleGoogleLogin}
+                                className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
                             >
-                                <Github size={20} />
-                                Login with GitHub
+                                <Chrome size={20} />
+                                Login with Google
                             </button>
                         </>
                     )}

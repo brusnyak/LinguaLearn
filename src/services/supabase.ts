@@ -24,7 +24,7 @@ export function isSupabaseConfigured(): boolean {
   return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://your-project-ref.supabase.co');
 }
 
-// Simple Google OAuth (more reliable than GitHub)
+// Simple Google OAuth (more reliable than GitHub)  
 export async function signInWithGoogle() {
   const client = getSupabase();
   if (!client) throw new Error('Supabase not configured');
@@ -32,11 +32,7 @@ export async function signInWithGoogle() {
   const { data, error } = await client.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        access_type: 'offline',
-        prompt: 'consent',
-      }
+      redirectTo: `${window.location.origin}/auth/callback`
     }
   });
   
