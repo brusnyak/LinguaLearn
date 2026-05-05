@@ -91,6 +91,7 @@ function App() {
               <Route path="/reading/:storyId" element={<Layout><StoryReaderPage /></Layout>} />
               <Route path="/statistics" element={<Layout><StatisticsPage /></Layout>} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/callback" element={<AuthCallbackPage />} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />
