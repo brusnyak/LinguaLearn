@@ -72,6 +72,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/onboarding" element={<OnboardingPage />} />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route path="/callback" element={<AuthCallbackPage />} />
           {needsAuth ? (
             <Route path="*" element={<LoginPage />} />
           ) : needsOnboarding ? (
@@ -90,8 +92,6 @@ function App() {
               <Route path="/reading" element={<Layout><ReadingPracticePage /></Layout>} />
               <Route path="/reading/:storyId" element={<Layout><StoryReaderPage /></Layout>} />
               <Route path="/statistics" element={<Layout><StatisticsPage /></Layout>} />
-              <Route path="/auth/callback" element={<AuthCallbackPage />} />
-              <Route path="/callback" element={<AuthCallbackPage />} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />
