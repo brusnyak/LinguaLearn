@@ -1,7 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Word, UserSettings, UserProgress } from '../types';
 import { getCurrentUserId } from './auth';
-import { isSupabaseConfigured, syncWordsToSupabase, syncWordsFromSupabase, syncSettingsToSupabase, syncSettingsFromSupabase, syncProgressToSupabase, syncProgressFromSupabase } from './supabase';
+import { isSupabaseConfigured, getCurrentSession, syncWordsToSupabase, syncWordsFromSupabase, syncSettingsToSupabase, syncSettingsFromSupabase, syncProgressToSupabase, syncProgressFromSupabase } from './supabase';
 
 interface LinguaDB extends DBSchema {
     words: {
@@ -77,8 +77,14 @@ export const db = {
             const userId = getCurrentUserId();
             const allWords = await db.getAll('words');
 
+            // Filter words: if userId exists, show only that user's words
+            // If no userId (legacy/local), show all words (backward compatibility)
             const filteredWords = userId
-                ? allWords.filter(w => w.userId === userId)
+                ? allWords.filter(w => {
+                    // Include words with matching userId OR words without userId (legacy)
+                    if (!w.userId) return true;
+                    return w.userId === userId;
+                })
                 : allWords;
 
             return filteredWords.filter(word =>
@@ -306,17 +312,63 @@ export const db = {
         }, key);
     },
 
-    // New: Sync all local data to Supabase
+    // New: Sync all local data to Supabase and update local user ID
     async syncToSupabase(): Promise<void> {
         if (!isSupabaseConfigured()) return;
 
+        const session = await getCurrentSession();
+        if (!session) {
+            throw new Error('Not logged in to Supabase. Please login first.');
+        }
+
+        const supabaseUserId = session.user.id;
+        const localUserId = getCurrentUserId();
+
+        // Get all local data
         const words = await this.getWords();
         const settings = await this.getSettings();
         const progress = await this.getProgress();
 
+        // Sync to Supabase
         if (words.length > 0) await syncWordsToSupabase(words);
         if (settings) await syncSettingsToSupabase(settings);
         if (progress) await syncProgressToSupabase(progress);
+
+        // Update local user ID to match Supabase user ID
+        if (localUserId && localUserId !== supabaseUserId) {
+            const dbInstance = await initDB();
+
+            // Update words
+            const tx = dbInstance.transaction('words', 'readwrite');
+            const allWords = await tx.store.getAll();
+            for (const word of allWords) {
+                if (!word.userId || word.userId === localUserId) {
+                    word.userId = supabaseUserId;
+                    await tx.store.put(word);
+                }
+            }
+            await tx.done;
+
+            // Update progress key
+            if (progress) {
+                await dbInstance.delete('progress', `progress-${localUserId}`);
+                await dbInstance.put('progress', progress, `progress-${supabaseUserId}`);
+            }
+
+            // Update currentUserId in localStorage
+            localStorage.setItem('currentUserId', supabaseUserId);
+
+            // Update user in users store
+            const userTx = dbInstance.transaction('users', 'readwrite');
+            const userStore = userTx.objectStore('users');
+            const localUser = await userStore.get(localUserId);
+            if (localUser) {
+                await userStore.delete(localUserId);
+                localUser.id = supabaseUserId;
+                await userStore.put(localUser);
+            }
+            await userTx.done;
+        }
     },
 
     // New: Pull data from Supabase to local

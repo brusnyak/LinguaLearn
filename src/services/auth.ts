@@ -46,44 +46,59 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 // Login user - supports both Supabase and local auth
+// Priority: local auth for existing users, Supabase for new email-based users
 export async function loginUser(username: string, password: string): Promise<User | null> {
-    // Try Supabase first if configured
-    if (isSupabaseConfigured()) {
-        try {
-            const result = await signInWithPassword(username, password);
-            if (!result?.data?.user) {
-                // If Supabase returns no user but no error, try local auth
-                return await localLogin(username, password);
-            }
+    // Check if this is an existing local user first (username, not email)
+    const existingLocalUser = await findLocalUserByUsername(username);
 
-            // Get user profile from Supabase
-            const supabase = getSupabase();
-            const { data: profile } = await supabase!
-                .from('user_settings')
-                .select('profile')
-                .eq('user_id', result.data.user.id)
-                .single();
-
-            const user: User = {
-                id: result.data.user.id,
-                username: result.data.user.email || username,
-                passwordHash: '',
-                profile: profile?.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
-                createdAt: new Date(result.data.user.created_at || Date.now()).getTime(),
-                lastLogin: Date.now()
-            };
-
+    if (existingLocalUser) {
+        // Existing local user - authenticate locally
+        const user = await localLogin(username, password);
+        if (user) {
             localStorage.setItem('currentUserId', user.id);
             return user;
+        }
+        // If local auth fails (wrong password), fall through to Supabase
+    }
+
+    // Try Supabase if configured (for email-based login or new users)
+    if (isSupabaseConfigured() && username.includes('@')) {
+        try {
+            const result = await signInWithPassword(username, password);
+            if (result?.data?.user) {
+                // Get user profile from Supabase
+                const supabase = getSupabase();
+                const { data: profile } = await supabase!
+                    .from('user_settings')
+                    .select('profile')
+                    .eq('user_id', result.data.user.id)
+                    .single();
+
+                const user: User = {
+                    id: result.data.user.id,
+                    username: result.data.user.email || username,
+                    passwordHash: '',
+                    profile: profile?.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
+                    createdAt: new Date(result.data.user.created_at || Date.now()).getTime(),
+                    lastLogin: Date.now()
+                };
+
+                localStorage.setItem('currentUserId', user.id);
+                return user;
+            }
         } catch (err: any) {
             console.error('Supabase login error:', err);
-            // Fall back to local auth if Supabase fails (wrong key, network, etc.)
-            console.log('Falling back to local auth...');
         }
     }
 
-    // Local auth (or fallback from failed Supabase)
+    // Final fallback: try local auth
     return await localLogin(username, password);
+}
+
+// Helper to check if a local user exists
+async function findLocalUserByUsername(username: string): Promise<User | null> {
+    const users = await getAllUsers();
+    return users.find(u => u.username.toLowerCase() === username.trim().toLowerCase()) || null;
 }
 
 // Local auth helper for createUser
@@ -235,29 +250,31 @@ export function logoutUser(): void {
     localStorage.removeItem('currentUserId');
 }
 
-// Get current user
+// Get current user - supports both Supabase and local auth
 export async function getCurrentUser(): Promise<User | null> {
+    // If Supabase is configured, try it first
     if (isSupabaseConfigured()) {
         const session = await getCurrentSession();
-        if (!session) return null;
+        if (session?.user) {
+            const supabase = getSupabase();
+            const { data: profile } = await supabase!
+                .from('user_settings')
+                .select('profile')
+                .eq('user_id', session.user.id)
+                .single();
 
-        const supabase = getSupabase();
-        const { data: profile } = await supabase!
-            .from('user_settings')
-            .select('profile')
-            .eq('user_id', session.user.id)
-            .single();
-
-        return {
-            id: session.user.id,
-            username: session.user.email || 'user',
-            passwordHash: '',
-            profile: profile?.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
-            createdAt: new Date(session.user.created_at).getTime(),
-            lastLogin: Date.now()
-        };
+            return {
+                id: session.user.id,
+                username: session.user.email || 'user',
+                passwordHash: '',
+                profile: profile?.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
+                createdAt: new Date(session.user.created_at).getTime(),
+                lastLogin: Date.now()
+            };
+        }
     }
 
+    // Fall back to local auth (either Supabase not configured, or no session)
     const userId = localStorage.getItem('currentUserId');
     if (!userId) return null;
 
@@ -287,7 +304,9 @@ export function getCurrentUserId(): string | null {
     return localStorage.getItem('currentUserId');
 }
 
-// Check if Supabase auth is enabled
-export function isUsingSupabaseAuth(): boolean {
-    return isSupabaseConfigured();
+// Check if user is authenticated with Supabase (has valid session)
+export async function isUsingSupabaseAuth(): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    const session = await getCurrentSession();
+    return !!session;
 }

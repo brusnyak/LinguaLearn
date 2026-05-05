@@ -22,14 +22,22 @@ const SettingsPage: React.FC = () => {
     const [autoReadFlashcards, setAutoReadFlashcards] = useState(true);
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+    const [isUsingSupabase, setIsUsingSupabase] = useState(false);
 
     useEffect(() => {
         loadSettings();
         loadCurrentUser();
+        checkSupabaseAuth();
         if ('Notification' in window) {
             setNotificationPermission(Notification.permission);
         }
     }, []);
+
+    const checkSupabaseAuth = async () => {
+        const isAuth = await isUsingSupabaseAuth();
+        setIsUsingSupabase(isAuth);
+    };
 
     const loadCurrentUser = async () => {
         const user = await getCurrentUser();
@@ -162,21 +170,29 @@ const SettingsPage: React.FC = () => {
     };
 
     const handleSyncToSupabase = async () => {
+        setIsSyncing(true);
         try {
             await db.syncToSupabase();
-            showToast('Data synced to cloud!', 'success');
-        } catch (error) {
-            showToast('Sync failed. Check Supabase config.', 'error');
+            showToast('Data synced to cloud! Your local data is now linked to your cloud account.', 'success');
+            // Refresh auth status
+            await checkSupabaseAuth();
+        } catch (error: any) {
+            showToast(error.message || 'Sync failed. Check Supabase config.', 'error');
+        } finally {
+            setIsSyncing(false);
         }
     };
 
     const handleSyncFromSupabase = async () => {
+        setIsSyncing(true);
         try {
             await db.syncFromSupabase();
             showToast('Data synced from cloud! Reloading...', 'success');
             setTimeout(() => window.location.reload(), 1500);
-        } catch (error) {
-            showToast('Sync failed. Check Supabase config.', 'error');
+        } catch (error: any) {
+            showToast(error.message || 'Sync failed. Check Supabase config.', 'error');
+        } finally {
+            setIsSyncing(false);
         }
     };
 
@@ -230,7 +246,7 @@ const SettingsPage: React.FC = () => {
                         <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
                     </div>
 
-                    {isSupabaseConfigured() && !isUsingSupabaseAuth() && (
+                    {isSupabaseConfigured() && !isUsingSupabase && (
                         <button
                             onClick={handleGitHubLogin}
                             className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
@@ -427,23 +443,46 @@ const SettingsPage: React.FC = () => {
                         <Database size={24} />
                         <h3 className="text-lg font-bold">Cloud Sync</h3>
                     </div>
-                    <p className="text-sm text-[var(--color-text-muted)]">
-                        Sync your data across devices using Supabase.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <button
-                            onClick={handleSyncToSupabase}
-                            className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Upload size={18} /> Sync to Cloud
-                        </button>
-                        <button
-                            onClick={handleSyncFromSupabase}
-                            className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Download size={18} /> Sync from Cloud
-                        </button>
-                    </div>
+
+                    {isUsingSupabase ? (
+                        <>
+                            <p className="text-sm text-green-600 dark:text-green-400">
+                                ✓ Connected to cloud
+                            </p>
+                            <p className="text-sm text-[var(--color-text-muted)]">
+                                Sync your data across devices. Your local data will be linked to your cloud account.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                <button
+                                    onClick={handleSyncToSupabase}
+                                    disabled={isSyncing}
+                                    className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    <Upload size={18} /> {isSyncing ? 'Syncing...' : 'Sync to Cloud'}
+                                </button>
+                                <button
+                                    onClick={handleSyncFromSupabase}
+                                    disabled={isSyncing}
+                                    className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    <Download size={18} /> {isSyncing ? 'Syncing...' : 'Sync from Cloud'}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <p className="text-sm text-[var(--color-text-muted)]">
+                                Login with GitHub to enable cloud sync across devices.
+                            </p>
+                            <button
+                                onClick={handleGitHubLogin}
+                                className="w-full md:w-auto px-6 py-3 bg-gray-900 text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                            >
+                                <Github size={20} />
+                                Login with GitHub
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
