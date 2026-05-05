@@ -17,12 +17,11 @@ const AuthCallbackPage: React.FC = () => {
             try {
                 addLog('Starting auth callback...');
                 
-                // Check if we have hash or query params
                 const hash = window.location.hash;
                 const search = window.location.search;
                 addLog(`URL: ${window.location.href}`);
-                addLog(`Hash: ${hash ? hash.substring(0, 50) + '...' : 'none'}`);
-                addLog(`Search: ${search ? search.substring(0, 50) + '...' : 'none'}`);
+                addLog(`Hash present: ${hash ? 'yes' : 'no'}`);
+                addLog(`Search present: ${search ? 'yes' : 'no'}`);
                 
                 if (!isSupabaseConfigured()) {
                     throw new Error('Supabase not configured');
@@ -31,46 +30,58 @@ const AuthCallbackPage: React.FC = () => {
                 const supabase = getSupabase();
                 if (!supabase) throw new Error('Supabase client not initialized');
 
-                addLog('Supabase client ready');
+                addLog('Supabase client ready, flowType: implicit');
 
-                // With implicit flow, Supabase should auto-process the hash
-                // Wait a bit for it to happen
-                addLog('Waiting for Supabase to process URL...');
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // Try to extract and set session from hash
+                if (hash && hash.includes('access_token')) {
+                    addLog('Hash contains access_token, processing...');
+                    try {
+                        const params = new URLSearchParams(hash.substring(1));
+                        const access_token = params.get('access_token');
+                        const refresh_token = params.get('refresh_token');
+                        
+                        if (access_token) {
+                            addLog('Setting session from hash...');
+                            const { data, error } = await supabase.auth.setSession({
+                                access_token,
+                                refresh_token: refresh_token || ''
+                            });
+                            
+                            if (error) {
+                                addLog(`setSession error: ${error.message}`);
+                            } else if (data.session) {
+                                addLog(`✅ Session set! User: ${data.session.user.email}`);
+                                localStorage.setItem('currentUserId', data.session.user.id);
+                                addLog('Redirecting to home in 1s...');
+                                setTimeout(() => navigate('/'), 1000);
+                                return;
+                            }
+                        }
+                    } catch (e: any) {
+                        addLog(`Hash processing error: ${e.message}`);
+                    }
+                }
 
-                // Now check for session
-                addLog('Checking for session...');
+                // Fallback: check if session was auto-detected
+                addLog('Checking for existing session...');
                 const { data: { session }, error } = await supabase.auth.getSession();
-
-                addLog(`Session: ${session ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
                 
                 if (error) {
                     addLog(`Session error: ${error.message}`);
-                    throw error;
                 }
-
+                
+                addLog(`Session: ${session ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
+                
                 if (session) {
                     addLog(`✅ Logged in as: ${session.user.email || session.user.id}`);
-                    addLog('Saving user ID and redirecting...');
                     localStorage.setItem('currentUserId', session.user.id);
                     setTimeout(() => {
                         addLog('Redirecting to home...');
                         navigate('/');
                     }, 1000);
                 } else {
-                    // Check for error in URL
-                    const params = new URLSearchParams(window.location.search);
-                    const errorMsg = params.get('error_description') || params.get('error');
-                    if (errorMsg) {
-                        throw new Error(decodeURIComponent(errorMsg));
-                    }
-                    
                     addLog('❌ No session found after OAuth');
-                    addLog('This usually means:');
-                    addLog('1. Google OAuth not enabled in Supabase');
-                    addLog('2. Wrong anon key in Vercel');
-                    addLog('3. Site URL not set in Supabase');
-                    
+                    addLog('Check: 1) Google OAuth enabled, 2) Correct anon key, 3) Site URL set');
                     setTimeout(() => {
                         addLog('Redirecting to login...');
                         navigate('/login');

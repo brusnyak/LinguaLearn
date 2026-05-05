@@ -31,10 +31,12 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', (event) => {
-    // Skip cross-origin requests and development server requests
+    // Skip cross-origin requests, development server requests, and auth callback
     if (event.request.url.startsWith('http://localhost') || 
         event.request.url.startsWith('chrome-extension://') ||
-        !event.request.url.startsWith(self.location.origin)) {
+        !event.request.url.startsWith(self.location.origin) ||
+        event.request.url.includes('/auth/callback') ||
+        event.request.url.includes('/callback')) {
         return;
     }
 
