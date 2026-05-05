@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { User, UserProfile } from '../types';
-import { getSupabase, isSupabaseConfigured, signInWithGitHub, signInWithPassword, signUp, signOut, getCurrentSession } from './supabase';
+import { getSupabase, isSupabaseConfigured, signInWithGitHub, signInWithGoogle, signInWithPassword, signUp, signOut, getCurrentSession } from './supabase';
 
 // Password hashing using Web Crypto API
 export async function hashPassword(password: string): Promise<string> {
@@ -171,6 +171,14 @@ export async function loginWithGitHub(): Promise<void> {
         throw new Error('Supabase not configured');
     }
     await signInWithGitHub();
+}
+
+// Login with Google
+export async function loginWithGoogle(): Promise<void> {
+    if (!isSupabaseConfigured()) {
+        throw new Error('Supabase not configured');
+    }
+    await signInWithGoogle();
 }
 
 // Create new user - supports both Supabase and local auth

@@ -5,6 +5,7 @@ import { getSupabase, isSupabaseConfigured } from '../services/supabase';
 const AuthCallbackPage: React.FC = () => {
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
+    const [status, setStatus] = useState('Processing authentication...');
 
     useEffect(() => {
         const handleAuthCallback = async () => {
@@ -16,25 +17,31 @@ const AuthCallbackPage: React.FC = () => {
                 const supabase = getSupabase();
                 if (!supabase) throw new Error('Supabase client not initialized');
 
-                // Process the hash fragment from OAuth redirect
-                // Supabase JS v2+ automatically handles the hash, but we need to wait for it
-                const { data, error } = await supabase.auth.getSession();
+                setStatus('Establishing session...');
+
+                // Wait a bit for Supabase to process the hash fragment
+                await new Promise(resolve => setTimeout(resolve, 1000));
+
+                // Get the session (Supabase should have processed the hash automatically)
+                const { data: { session }, error } = await supabase.auth.getSession();
 
                 if (error) throw error;
 
-                if (data.session) {
-                    // Successfully authenticated
-                    localStorage.setItem('currentUserId', data.session.user.id);
-                    navigate('/');
+                if (session) {
+                    setStatus('Authentication successful! Redirecting...');
+                    localStorage.setItem('currentUserId', session.user.id);
+                    // Small delay to show success message
+                    setTimeout(() => navigate('/'), 500);
                 } else {
-                    // Check for error in URL params
+                    // Check for error in URL
                     const params = new URLSearchParams(window.location.search);
                     const errorMsg = params.get('error_description') || params.get('error');
                     if (errorMsg) {
                         throw new Error(decodeURIComponent(errorMsg));
                     }
-                    // If no session and no error, redirect to login
-                    navigate('/login');
+                    // No session, redirect to login
+                    setStatus('No session found. Redirecting to login...');
+                    setTimeout(() => navigate('/login'), 1000);
                 }
             } catch (err: any) {
                 console.error('Auth callback error:', err);
@@ -66,7 +73,7 @@ const AuthCallbackPage: React.FC = () => {
         <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
             <div className="text-center space-y-4">
                 <div className="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
-                <p className="text-[var(--color-text-muted)]">Completing authentication...</p>
+                <p className="text-[var(--color-text-muted)]">{status}</p>
             </div>
         </div>
     );

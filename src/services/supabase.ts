@@ -8,7 +8,14 @@ let supabase: SupabaseClient | null = null;
 
 export function getSupabase() {
   if (!supabase && supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://your-project-ref.supabase.co') {
-    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        flowType: 'implicit', // Use hash fragment (simpler)
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true // Important: auto-detect session from URL
+      }
+    });
   }
   return supabase;
 }
@@ -17,15 +24,19 @@ export function isSupabaseConfigured(): boolean {
   return !!(supabaseUrl && supabaseAnonKey && supabaseUrl !== 'https://your-project-ref.supabase.co');
 }
 
-// Auth functions
-export async function signInWithGitHub() {
+// Simple Google OAuth (more reliable than GitHub)
+export async function signInWithGoogle() {
   const client = getSupabase();
   if (!client) throw new Error('Supabase not configured');
   
   const { data, error } = await client.auth.signInWithOAuth({
-    provider: 'github',
+    provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'consent',
+      }
     }
   });
   
@@ -33,6 +44,7 @@ export async function signInWithGitHub() {
   return { data, error };
 }
 
+// Password-based login
 export async function signInWithPassword(email: string, password: string) {
   const client = getSupabase();
   if (!client) throw new Error('Supabase not configured');
@@ -46,6 +58,7 @@ export async function signInWithPassword(email: string, password: string) {
   return { data, error };
 }
 
+// Sign up with email/password
 export async function signUp(email: string, password: string) {
   const client = getSupabase();
   if (!client) throw new Error('Supabase not configured');
@@ -53,6 +66,22 @@ export async function signUp(email: string, password: string) {
   const { data, error } = await client.auth.signUp({
     email,
     password
+  });
+  
+  if (error) throw error;
+  return { data, error };
+}
+
+// Simple GitHub OAuth  
+export async function signInWithGitHub() {
+  const client = getSupabase();
+  if (!client) throw new Error('Supabase not configured');
+  
+  const { data, error } = await client.auth.signInWithOAuth({
+    provider: 'github',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`
+    }
   });
   
   if (error) throw error;
@@ -73,7 +102,7 @@ export async function getCurrentSession() {
   return session;
 }
 
-// Sync functions
+// Sync functions - simple upsert based on user_id
 export async function syncWordsToSupabase(words: Word[]) {
   const client = getSupabase();
   if (!client) return;

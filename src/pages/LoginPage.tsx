@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, getAllUsers, loginWithGitHub } from '../services/auth';
+import { loginUser, getAllUsers, loginWithGoogle, loginWithGitHub } from '../services/auth';
 import { isSupabaseConfigured } from '../services/supabase';
-import { LogIn, UserPlus, Github } from 'lucide-react';
+import { LogIn, UserPlus, Github, Chrome } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -74,6 +74,17 @@ const LoginPage: React.FC = () => {
             // Will redirect to GitHub, no need to handle further
         } catch (err: any) {
             setError(err.message || 'GitHub login failed');
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        try {
+            setLoading(true);
+            await loginWithGoogle();
+            // Will redirect to Google, no need to handle further
+        } catch (err: any) {
+            setError(err.message || 'Google login failed');
             setLoading(false);
         }
     };
@@ -155,6 +166,19 @@ const LoginPage: React.FC = () => {
                         >
                             <Github size={20} />
                             Sign in with GitHub
+                        </button>
+                    )}
+
+                    {/* Google Login Button */}
+                    {isSupabaseEnabled && (
+                        <button
+                            type="button"
+                            onClick={handleGoogleLogin}
+                            disabled={loading}
+                            className="w-full bg-white text-gray-900 border-2 border-gray-300 py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            <Chrome size={20} />
+                            Sign in with Google
                         </button>
                     )}
 
