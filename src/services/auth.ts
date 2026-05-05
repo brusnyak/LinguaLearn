@@ -177,12 +177,13 @@ export async function loginWithGoogle(): Promise<void> {
 export async function createUser(
     username: string,
     password: string,
-    profile: UserProfile
+    profile: UserProfile,
+    email?: string // Optional email for Supabase auth
 ): Promise<User> {
-    // Try Supabase first if configured
-    if (isSupabaseConfigured()) {
+    // Try Supabase first if configured and email provided
+    if (isSupabaseConfigured() && email) {
         try {
-            const result = await signUp(username, password);
+            const result = await signUp(email, password);
             if (!result?.data?.user) {
                 console.log('Supabase signup returned no user, falling back to local auth...');
                 return await localCreateUser(username, password, profile);

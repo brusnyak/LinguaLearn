@@ -89,10 +89,10 @@ const LoginPage: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-4">
-                    {/* Username */}
+                    {/* Username or Email */}
                     <div>
                         <label htmlFor="username" className="block text-sm font-medium text-[var(--color-text)] mb-2">
-                            Username
+                            Username or Email
                         </label>
                         <input
                             id="username"
@@ -100,7 +100,7 @@ const LoginPage: React.FC = () => {
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
                             className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all"
-                            placeholder="Enter your username"
+                            placeholder="Enter username or email"
                             autoComplete="username"
                             disabled={loading}
                         />
@@ -157,18 +157,18 @@ const LoginPage: React.FC = () => {
                             Sign in with Google
                         </button>
                     )}
-
-                    {/* Create Account Button */}
-                    <button
-                        type="button"
-                        onClick={handleCreateAccount}
-                        disabled={loading}
-                        className="w-full bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] py-3 rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                        <UserPlus size={20} />
-                        Create New Account
-                    </button>
                 </form>
+
+                {/* Create Account Button */}
+                <button
+                    type="button"
+                    onClick={handleCreateAccount}
+                    disabled={loading}
+                    className="w-full mt-4 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] py-3 rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                    <UserPlus size={20} />
+                    Create New Account
+                </button>
             </div>
         </div>
     );

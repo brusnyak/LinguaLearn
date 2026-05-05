@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../services/db';
-import { ArrowRight, Check, Lock, User } from 'lucide-react';
+import { ArrowRight, Check, Lock, User, Mail } from 'lucide-react';
 import type { UserSettings } from '../types';
 import { createUser, getAllUsers } from '../services/auth';
 
 const OnboardingPage: React.FC = () => {
     const [step, setStep] = useState(1);
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
@@ -29,6 +30,12 @@ const OnboardingPage: React.FC = () => {
             return;
         }
 
+        // Validate email if provided (for cloud sync)
+        if (email && !email.includes('@')) {
+            setError('Please enter a valid email address');
+            return;
+        }
+
         // Validate password
         if (!password || password.length < 6) {
             setError('Password must be at least 6 characters');
@@ -39,7 +46,7 @@ const OnboardingPage: React.FC = () => {
             return;
         }
 
-        // Check for duplicate username
+        // Check for duplicate username (local users)
         try {
             const existingUsers = await getAllUsers();
             const duplicate = existingUsers.find(
@@ -57,13 +64,13 @@ const OnboardingPage: React.FC = () => {
 
     const handleComplete = async () => {
         try {
-            // Create user account
+            // Create user account - pass email for Supabase signup
             await createUser(username, password, {
                 name,
                 nativeLanguage: nativeLang,
                 targetLanguage: targetLang,
                 level
-            });
+            }, email); // Pass email for Supabase auth
 
             // Save settings (optional, for backward compatibility)
             const currentSettings = await db.getSettings();
@@ -129,6 +136,19 @@ const OnboardingPage: React.FC = () => {
                                         placeholder="Choose a username"
                                         className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
                                         autoFocus
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
+                                        <Mail className="inline mr-1" size={16} /> Email (for cloud sync)
+                                    </label>
+                                    <input
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="your@email.com"
+                                        className="w-full p-4 rounded-xl bg-[var(--color-bg)] border-2 border-transparent focus:border-[var(--color-primary)] outline-none text-lg"
                                     />
                                 </div>
 
