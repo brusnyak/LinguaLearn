@@ -16,7 +16,8 @@ const AuthCallbackPage: React.FC = () => {
                 const supabase = getSupabase();
                 if (!supabase) throw new Error('Supabase client not initialized');
 
-                // Get session from URL hash (automatically handled by Supabase)
+                // Process the hash fragment from OAuth redirect
+                // Supabase JS v2+ automatically handles the hash, but we need to wait for it
                 const { data, error } = await supabase.auth.getSession();
 
                 if (error) throw error;
@@ -26,12 +27,13 @@ const AuthCallbackPage: React.FC = () => {
                     localStorage.setItem('currentUserId', data.session.user.id);
                     navigate('/');
                 } else {
-                    // Check for error in URL
+                    // Check for error in URL params
                     const params = new URLSearchParams(window.location.search);
                     const errorMsg = params.get('error_description') || params.get('error');
                     if (errorMsg) {
                         throw new Error(decodeURIComponent(errorMsg));
                     }
+                    // If no session and no error, redirect to login
                     navigate('/login');
                 }
             } catch (err: any) {
@@ -46,7 +48,7 @@ const AuthCallbackPage: React.FC = () => {
     if (error) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-4 max-w-md mx-auto p-4">
                     <div className="text-red-500 text-xl font-bold">Authentication Failed</div>
                     <p className="text-[var(--color-text-muted)]">{error}</p>
                     <button

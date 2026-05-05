@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, getAllUsers } from '../services/auth';
-import { LogIn, UserPlus } from 'lucide-react';
+import { loginUser, getAllUsers, loginWithGitHub } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
+import { LogIn, UserPlus, Github } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -10,6 +11,7 @@ const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [existingUsers, setExistingUsers] = useState<string[]>([]);
+    const [isSupabaseEnabled, setIsSupabaseEnabled] = useState(false);
 
     useEffect(() => {
         loadExistingUsers();
@@ -18,6 +20,8 @@ const LoginPage: React.FC = () => {
         if (lastUsername) {
             setUsername(lastUsername);
         }
+        // Check if Supabase is configured
+        setIsSupabaseEnabled(isSupabaseConfigured());
     }, []);
 
     const loadExistingUsers = async () => {
@@ -61,6 +65,17 @@ const LoginPage: React.FC = () => {
 
     const handleCreateAccount = () => {
         navigate('/onboarding');
+    };
+
+    const handleGitHubLogin = async () => {
+        try {
+            setLoading(true);
+            await loginWithGitHub();
+            // Will redirect to GitHub, no need to handle further
+        } catch (err: any) {
+            setError(err.message || 'GitHub login failed');
+            setLoading(false);
+        }
     };
 
     return (
@@ -129,6 +144,19 @@ const LoginPage: React.FC = () => {
                         <LogIn size={20} />
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
+
+                    {/* GitHub Login Button */}
+                    {isSupabaseEnabled && (
+                        <button
+                            type="button"
+                            onClick={handleGitHubLogin}
+                            disabled={loading}
+                            className="w-full bg-gray-900 text-white py-3 rounded-lg font-bold hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            <Github size={20} />
+                            Sign in with GitHub
+                        </button>
+                    )}
 
                     {/* Create Account Button */}
                     <button
