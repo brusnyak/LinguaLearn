@@ -19,10 +19,8 @@ const AuthCallbackPage: React.FC = () => {
 
                 setStatus('Establishing session...');
 
-                // Wait a bit for Supabase to process the hash fragment
-                await new Promise(resolve => setTimeout(resolve, 1000));
-
-                // Get the session (Supabase should have processed the hash automatically)
+                // With PKCE flow, Supabase automatically processes the URL hash
+                // We just need to get the session
                 const { data: { session }, error } = await supabase.auth.getSession();
 
                 if (error) throw error;
@@ -33,7 +31,7 @@ const AuthCallbackPage: React.FC = () => {
                     // Small delay to show success message
                     setTimeout(() => navigate('/'), 500);
                 } else {
-                    // Check for error in URL
+                    // Check for error in URL params
                     const params = new URLSearchParams(window.location.search);
                     const errorMsg = params.get('error_description') || params.get('error');
                     if (errorMsg) {
