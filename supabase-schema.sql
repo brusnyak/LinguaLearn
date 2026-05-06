@@ -43,10 +43,31 @@ CREATE INDEX IF NOT EXISTS idx_words_user_id ON words(user_id);
 CREATE INDEX IF NOT EXISTS idx_words_category ON words(category);
 CREATE INDEX IF NOT EXISTS idx_words_term ON words(term);
 
+-- PROFILES TABLE (Core user info)
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  display_name TEXT,
+  email TEXT,
+  avatar_url TEXT,
+  native_language TEXT DEFAULT 'uk',
+  target_language TEXT DEFAULT 'en',
+  learning_level TEXT DEFAULT 'beginner',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view any profile" ON profiles
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can update own profile" ON profiles
+  FOR UPDATE USING (auth.uid() = id);
+
 -- USER SETTINGS TABLE
 CREATE TABLE IF NOT EXISTS user_settings (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  profile JSONB,
+  profile_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   theme TEXT DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
   notifications_enabled BOOLEAN DEFAULT FALSE,
   notification_time TEXT DEFAULT '08:00',
@@ -91,6 +112,33 @@ CREATE POLICY "Users can insert own progress" ON user_progress
 CREATE POLICY "Users can update own progress" ON user_progress
   FOR UPDATE USING (auth.uid() = user_id);
 
+-- Function to handle new user signup
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, display_name, email, avatar_url)
+  VALUES (
+    NEW.id,
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'display_name', NEW.email),
+    NEW.email,
+    NEW.raw_user_meta_data->>'avatar_url'
+  );
+
+  INSERT INTO public.user_settings (user_id, profile_id)
+  VALUES (NEW.id, NEW.id);
+
+  INSERT INTO public.user_progress (user_id)
+  VALUES (NEW.id);
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger for new user signup
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -101,6 +149,9 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers for updated_at
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 CREATE TRIGGER update_words_updated_at BEFORE UPDATE ON words
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -112,5 +163,9 @@ CREATE TRIGGER update_user_progress_updated_at BEFORE UPDATE ON user_progress
 
 -- Grant permissions
 GRANT ALL ON words TO authenticated;
+GRANT ALL ON profiles TO authenticated;
 GRANT ALL ON user_settings TO authenticated;
 GRANT ALL ON user_progress TO authenticated;
+
+-- Grant usage on schemas
+GRANT USAGE ON SCHEMA public TO anon, authenticated;

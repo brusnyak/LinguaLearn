@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Book, Gamepad2, Settings, Home, ChevronLeft, ChevronRight, LogOut, CheckCircle } from 'lucide-react';
 import { useDevice } from '../hooks/useDevice';
-import { getCurrentUser, isUsingPBAuth, logoutUser } from '../services/auth';
-import { isPBConfigured } from '../services/pocketbase';
+import { getCurrentUser, isUsingCloudAuth, logoutUser } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -16,15 +16,15 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [user, setUser] = useState<any>(null);
-    const [isPBAuth, setIsPBAuth] = useState(false);
+    const [isCloudAuth, setIsCloudAuth] = useState(false);
 
     useEffect(() => {
         const loadUser = async () => {
             const u = await getCurrentUser();
             setUser(u);
-            if (isPBConfigured()) {
-                const isAuth = await isUsingPBAuth();
-                setIsPBAuth(isAuth);
+            if (isSupabaseConfigured()) {
+                const isAuth = await isUsingCloudAuth();
+                setIsCloudAuth(isAuth);
             }
         };
         loadUser();
@@ -52,8 +52,6 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
             window.removeEventListener('offline', handleOffline);
         };
     }, []);
-
-
 
     const toggleSidebar = () => {
         const newState = !isSidebarCollapsed;
@@ -120,7 +118,7 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
                                 {!isSidebarCollapsed && (
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium truncate">{user.profile?.name || user.username}</p>
-                                        {isPBAuth && (
+                                        {isCloudAuth && (
                                             <p className="text-xs text-green-500 flex items-center gap-1">
                                                 <CheckCircle size={12} /> Cloud synced
                                             </p>
@@ -131,8 +129,8 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
                         )}
                         {!isSidebarCollapsed && (
                             <button
-                                onClick={() => {
-                                    logoutUser();
+                                onClick={async () => {
+                                    await logoutUser();
                                     window.location.href = '/login';
                                 }}
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

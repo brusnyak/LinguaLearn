@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { getCurrentUser, getCurrentUserId } from '../services/auth';
-import { isPBConfigured, pbIsAuthenticated, getPocketBase } from '../services/pocketbase';
+import { isSupabaseConfigured, getSupabase } from '../services/supabase';
 import { CheckCircle, XCircle, Database, User, Cloud } from 'lucide-react';
 
 const StatusTestPage: React.FC = () => {
@@ -71,56 +71,43 @@ const StatusTestPage: React.FC = () => {
         }
         setResults([...tests]);
 
-        // Test 5: PocketBase Configured
+        // Test 5: Supabase Configured
         try {
-            const test = 'PocketBase Configured';
+            const test = 'Supabase Configured';
             tests.push({ name: test, status: 'testing', message: 'Testing...' });
             setResults([...tests]);
-            if (isPBConfigured()) {
-                tests[tests.length - 1] = { name: test, status: 'pass', message: `URL: ${import.meta.env.VITE_PB_URL}` };
+            if (isSupabaseConfigured()) {
+                tests[tests.length - 1] = { name: test, status: 'pass', message: `URL: ${import.meta.env.VITE_SUPABASE_URL}` };
             } else {
-                tests[tests.length - 1] = { name: test, status: 'fail', message: 'PocketBase URL not configured in .env' };
+                tests[tests.length - 1] = { name: test, status: 'fail', message: 'Supabase URL or Key not configured in .env' };
             }
         } catch (e: any) {
-            tests[tests.length - 1] = { name: 'PocketBase Configured', status: 'fail', message: e.message };
+            tests[tests.length - 1] = { name: 'Supabase Configured', status: 'fail', message: e.message };
         }
         setResults([...tests]);
 
-        // Test 6: PocketBase Connection
+        // Test 6: Supabase Connection
         try {
-            const test = 'PocketBase Connection';
+            const test = 'Supabase Connection';
             tests.push({ name: test, status: 'testing', message: 'Testing...' });
             setResults([...tests]);
-            const response = await fetch(`${import.meta.env.VITE_PB_URL}/api/health`);
-            if (response.ok) {
-                tests[tests.length - 1] = { name: test, status: 'pass', message: 'Connected to PocketBase!' };
+            const client = getSupabase();
+            if (client) {
+                const { error } = await client.from('profiles').select('count', { count: 'exact', head: true });
+                if (!error) {
+                    tests[tests.length - 1] = { name: test, status: 'pass', message: 'Connected to Supabase and queried profiles table!' };
+                } else {
+                    tests[tests.length - 1] = { name: test, status: 'fail', message: `Supabase Error: ${error.message}` };
+                }
             } else {
-                tests[tests.length - 1] = { name: test, status: 'fail', message: `HTTP ${response.status}` };
+                tests[tests.length - 1] = { name: test, status: 'fail', message: 'Supabase client not initialized' };
             }
         } catch (e: any) {
-            tests[tests.length - 1] = { name: 'PocketBase Connection', status: 'fail', message: 'Cannot connect (is PocketBase running?)' };
+            tests[tests.length - 1] = { name: 'Supabase Connection', status: 'fail', message: 'Cannot connect to Supabase' };
         }
         setResults([...tests]);
 
-        // Test 7: PocketBase Auth
-        try {
-            const test = 'PocketBase Auth';
-            tests.push({ name: test, status: 'testing', message: 'Testing...' });
-            setResults([...tests]);
-            const isAuth = await pbIsAuthenticated();
-            if (isAuth) {
-                const pb = getPocketBase();
-                const user = pb.authStore.model;
-                tests[tests.length - 1] = { name: test, status: 'pass', message: `Authenticated as: ${user?.email || user?.id}` };
-            } else {
-                tests[tests.length - 1] = { name: test, status: 'fail', message: 'Not authenticated to PocketBase' };
-            }
-        } catch (e: any) {
-            tests[tests.length - 1] = { name: 'PocketBase Auth', status: 'fail', message: e.message };
-        }
-        setResults([...tests]);
-
-        // Test 8: DB Read/Write
+        // Test 7: DB Read/Write
         try {
             const test = 'DB Read/Write Test';
             tests.push({ name: test, status: 'testing', message: 'Testing...' });
@@ -139,7 +126,7 @@ const StatusTestPage: React.FC = () => {
         <div className="min-h-screen bg-[var(--color-bg)] p-6">
             <div className="max-w-2xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-2xl font-bold">User & DB Status Test</h1>
+                    <h1 className="text-2xl font-bold">User & Supabase Status Test</h1>
                     <button
                         onClick={() => navigate(-1)}
                         className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg"
@@ -150,7 +137,7 @@ const StatusTestPage: React.FC = () => {
 
                 <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm mb-6">
                     <p className="text-sm text-[var(--color-text-muted)] mb-4">
-                        This page tests the user authentication and database status.
+                        This page tests the user authentication and Supabase database status.
                     </p>
                     <button
                         onClick={runTests}
@@ -209,15 +196,20 @@ const StatusTestPage: React.FC = () => {
                         <button
                             onClick={async () => {
                                 try {
-                                    const health = await fetch(`${import.meta.env.VITE_PB_URL}/api/health`);
-                                    alert(health.ok ? 'PocketBase is running!' : 'PocketBase not reachable');
+                                    const client = getSupabase();
+                                    if (!client) {
+                                        alert('Supabase client not initialized');
+                                        return;
+                                    }
+                                    const { error } = await client.from('profiles').select('count', { count: 'exact', head: true });
+                                    alert(!error ? 'Supabase is reachable!' : `Supabase Error: ${error.message}`);
                                 } catch (e: any) {
                                     alert(`Error: ${e.message}`);
                                 }
                             }}
                             className="px-4 py-2 bg-purple-500 text-white rounded-lg text-sm"
                         >
-                            <Cloud size={16} className="inline mr-1" /> Check Cloud
+                            <Cloud size={16} className="inline mr-1" /> Check Supabase
                         </button>
                     </div>
                 </div>

@@ -4,8 +4,8 @@ import AppearanceSettings from '../components/AppearanceSettings';
 import { db, initDB } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
-import { getCurrentUser, logoutUser, isUsingPBAuth, linkCurrentLocalAccountWithEmail, updateLinkedEmail } from '../services/auth';
-import { isPBConfigured } from '../services/pocketbase';
+import { getCurrentUser, logoutUser, isUsingCloudAuth } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
 
 const SettingsPage: React.FC = () => {
     const { showToast } = useToast();
@@ -23,25 +23,20 @@ const SettingsPage: React.FC = () => {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [isUsingPB, setIsUsingPB] = useState(false);
-    const [linkEmail, setLinkEmail] = useState('');
-    const [linkPassword, setLinkPassword] = useState('');
-    const [isLinkingEmail, setIsLinkingEmail] = useState(false);
-    const [newLinkedEmail, setNewLinkedEmail] = useState('');
-    const [isUpdatingLinkedEmail, setIsUpdatingLinkedEmail] = useState(false);
+    const [isCloudActive, setIsCloudActive] = useState(false);
 
     useEffect(() => {
         loadSettings();
         loadCurrentUser();
-        checkPBAuth();
+        checkCloudAuth();
         if ('Notification' in window) {
             setNotificationPermission(Notification.permission);
         }
     }, []);
 
-    const checkPBAuth = async () => {
-        const isAuth = await isUsingPBAuth();
-        setIsUsingPB(isAuth);
+    const checkCloudAuth = async () => {
+        const isAuth = await isUsingCloudAuth();
+        setIsCloudActive(isAuth);
     };
 
     const loadCurrentUser = async () => {
@@ -174,28 +169,27 @@ const SettingsPage: React.FC = () => {
         input.click();
     };
 
-    const handleSyncToPocketBase = async () => {
+    const handleSyncToCloud = async () => {
         setIsSyncing(true);
         try {
-            await db.syncToPocketBase();
+            await db.syncToCloud();
             showToast('Data synced to cloud! Your local data is now linked to your cloud account.', 'success');
-            // Refresh auth status
-            await checkPBAuth();
+            await checkCloudAuth();
         } catch (error: any) {
-            showToast(error.message || 'Sync failed. Check PocketBase config.', 'error');
+            showToast(error.message || 'Sync failed. Check cloud connection.', 'error');
         } finally {
             setIsSyncing(false);
         }
     };
 
-    const handleSyncFromPocketBase = async () => {
+    const handleSyncFromCloud = async () => {
         setIsSyncing(true);
         try {
-            await db.syncFromPocketBase();
+            await db.syncFromCloud();
             showToast('Data synced from cloud! Reloading...', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } catch (error: any) {
-            showToast(error.message || 'Sync failed. Check PocketBase config.', 'error');
+            showToast(error.message || 'Sync failed. Check cloud connection.', 'error');
         } finally {
             setIsSyncing(false);
         }
@@ -219,50 +213,10 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         if (confirm('Are you sure you want to logout?')) {
-            logoutUser();
+            await logoutUser();
             window.location.href = '/login';
-        }
-    };
-
-
-
-    const handleLinkEmailAccount = async () => {
-        setIsLinkingEmail(true);
-        try {
-            const result = await linkCurrentLocalAccountWithEmail(linkEmail, linkPassword);
-
-            if (result.status === 'verification_required') {
-                localStorage.setItem('pendingCloudSyncAfterVerification', 'true');
-                showToast('Verification email sent. Confirm it, then login with email and sync to cloud.', 'success');
-                return;
-            }
-
-            await db.syncToPocketBase();
-            setLinkEmail('');
-            setLinkPassword('');
-            await checkPBAuth();
-            await loadCurrentUser();
-            showToast('Cloud account linked and local data synced.', 'success');
-        } catch (error: any) {
-            showToast(error.message || 'Failed to link email account', 'error');
-        } finally {
-            setIsLinkingEmail(false);
-        }
-    };
-
-    const handleUpdateLinkedEmail = async () => {
-        setIsUpdatingLinkedEmail(true);
-        try {
-            await updateLinkedEmail(newLinkedEmail);
-            setNewLinkedEmail('');
-            showToast('Email update requested. Check your inbox to confirm the new email.', 'success');
-            await loadCurrentUser();
-        } catch (error: any) {
-            showToast(error.message || 'Failed to update linked email', 'error');
-        } finally {
-            setIsUpdatingLinkedEmail(false);
         }
     };
 
@@ -278,12 +232,10 @@ const SettingsPage: React.FC = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block text-sm font-medium text-[var(--color-text-muted)] mb-1">
-                            Username
+                            Username / Email
                         </label>
                         <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
                     </div>
-
-            
 
                     <button
                         onClick={handleLogout}
@@ -466,98 +418,47 @@ const SettingsPage: React.FC = () => {
             <AppearanceSettings />
 
              {/* Cloud Sync Section */}
-             {isPBConfigured() && (
+             {isSupabaseConfigured() && (
                  <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
                      <div className="flex items-center gap-2 text-[var(--color-primary)]">
                          <Database size={24} />
                          <h3 className="text-lg font-bold">Cloud Sync</h3>
                      </div>
 
-                     {isUsingPB ? (
+                     {isCloudActive ? (
                          <>
                              <p className="text-sm text-green-600 dark:text-green-400">
-                                 ✓ Connected to cloud
+                                 ✓ Connected to Supabase
                              </p>
                              <p className="text-sm text-[var(--color-text-muted)]">
-                                 Sync your data across devices. Your local data will be linked to your cloud account.
+                                 Sync your data across devices securely. Your local data will be linked to your cloud account.
                              </p>
                              <div className="flex flex-col sm:flex-row gap-3">
                                   <button
-                                     onClick={handleSyncToPocketBase}
+                                     onClick={handleSyncToCloud}
                                      disabled={isSyncing}
                                      className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                  >
                                      <Upload size={18} /> {isSyncing ? 'Syncing...' : 'Sync to Cloud'}
                                  </button>
                                  <button
-                                     onClick={handleSyncFromPocketBase}
+                                     onClick={handleSyncFromCloud}
                                      disabled={isSyncing}
                                      className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                                  >
                                      <Download size={18} /> {isSyncing ? 'Syncing...' : 'Sync from Cloud'}
                                  </button>
                              </div>
-                            <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
-                                <p className="text-sm font-medium">Change linked email</p>
-                                <input
-                                    type="email"
-                                    value={newLinkedEmail}
-                                    onChange={(e) => setNewLinkedEmail(e.target.value)}
-                                    placeholder="new@email.com"
-                                    className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                />
-                                <button
-                                    onClick={handleUpdateLinkedEmail}
-                                    disabled={isUpdatingLinkedEmail || !newLinkedEmail.trim()}
-                                    className="w-full px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors disabled:opacity-50"
-                                >
-                                    {isUpdatingLinkedEmail ? 'Updating...' : 'Update Linked Email'}
-                                </button>
-                            </div>
                         </>
                     ) : (
-                        <>
-                            <p className="text-sm text-[var(--color-text-muted)]">
-                                {currentUsername ? (
-                                    <>
-                                        You're logged in as <span className="font-medium">{currentUsername}</span> (local account). Link to a cloud account to sync across devices.
-                                    </>
-                                ) : (
-                                    'Create a cloud account with email to enable sync across devices.'
-                                )}
-                            </p>
-                            <div className="flex flex-col gap-3">
-                                <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
-                                    <p className="text-sm font-medium">Link with email/password</p>
-                                    <input
-                                        type="email"
-                                        value={linkEmail}
-                                        onChange={(e) => setLinkEmail(e.target.value)}
-                                        placeholder="your@email.com"
-                                        className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                    />
-                                    <input
-                                        type="password"
-                                        value={linkPassword}
-                                        onChange={(e) => setLinkPassword(e.target.value)}
-                                        placeholder="Choose password (min 6 chars)"
-                                        className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                    />
-                                    <button
-                                        onClick={handleLinkEmailAccount}
-                                        disabled={isLinkingEmail || !linkEmail.trim() || !linkPassword}
-                                        className="w-full px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50"
-                                    >
-                                        {isLinkingEmail ? 'Linking...' : 'Link Email Account'}
-                                    </button>
+                        <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300">
+                            <div className="flex gap-3">
+                                <Info className="shrink-0" size={20} />
+                                <div className="text-sm">
+                                    Cloud sync is available! Sign in with your email or Google account to enable cross-device sync.
                                 </div>
-                                {currentUsername && (
-                                    <p className="text-xs text-[var(--color-text-muted)] text-center">
-                                        Or create a cloud account with email in the onboarding flow.
-                                    </p>
-                                )}
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
             )}
@@ -606,7 +507,7 @@ const SettingsPage: React.FC = () => {
                         <li>Spaced Repetition Flashcards</li>
                         <li>Offline Support</li>
                         <li>Dark/Light Theme (Purple & Orange)</li>
-                        {isPBConfigured() && <li>Cloud Sync with PocketBase</li>}
+                        {isSupabaseConfigured() && <li>Cloud Sync with Supabase</li>}
                     </ul>
                 </div>
             </div>

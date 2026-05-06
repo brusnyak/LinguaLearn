@@ -277,3 +277,33 @@ export async function syncProgressFromSupabase(): Promise<UserProgress | null> {
   }  
   return data ? supabaseToProgress(data) : null;
 }
+
+// Profile management
+export async function getProfile(userId: string) {
+  const client = getSupabase();
+  if (!client) return null;
+  
+  const { data, error } = await client
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+    
+  if (error) {
+    console.error('Failed to fetch profile:', error);
+    return null;
+  }
+  return data;
+}
+
+export async function updateProfile(userId: string, updates: any) {
+  const client = getSupabase();
+  if (!client) return;
+  
+  const { error } = await client
+    .from('profiles')
+    .update(updates)
+    .eq('id', userId);
+    
+  if (error) console.error('Failed to update profile:', error);
+}

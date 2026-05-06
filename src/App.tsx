@@ -24,7 +24,7 @@ import StatusTestPage from './pages/StatusTestPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
-import { getCurrentUser, isUsingPBAuth } from './services/auth';
+import { getCurrentUser, isUsingCloudAuth } from './services/auth';
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -51,18 +51,17 @@ function App() {
           // No user logged in - need to login
           setNeedsAuth(true);
         } else {
-          // If user just verified cloud email and has a pending sync flag, auto-sync once.
+          // If user has a pending sync flag, auto-sync once.
           const pendingSync = localStorage.getItem('pendingCloudSyncAfterVerification') === 'true';
           if (pendingSync) {
             try {
-              const usingPB = await isUsingPBAuth();
-              if (usingPB) {
-                await db.syncToPocketBase();
+              if (await isUsingCloudAuth()) {
+                await db.syncToCloud();
                 localStorage.removeItem('pendingCloudSyncAfterVerification');
-                console.log('Auto-sync after email verification completed');
+                console.log('Auto-sync completed');
               }
             } catch (syncError) {
-              console.warn('Auto-sync after verification failed:', syncError);
+              console.warn('Auto-sync failed:', syncError);
             }
           }
 
@@ -122,7 +121,7 @@ function App() {
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />
               <Route path="/games/flashcards" element={<Layout fullscreen><FlashcardGamePage /></Layout>} />
               <Route path="/games/word-match" element={<Layout fullscreen><WordMatchPage /></Layout>} />
-<Route path="/games/word-builder" element={<Layout fullscreen><WordBuilderPage /></Layout>} />
+              <Route path="/games/word-builder" element={<Layout fullscreen><WordBuilderPage /></Layout>} />
               <Route path="/games/real-world" element={<Layout fullscreen><RealWorldPracticePage /></Layout>} />
               <Route path="/games/listening" element={<Layout fullscreen><ListeningChallengePage /></Layout>} />
             </>

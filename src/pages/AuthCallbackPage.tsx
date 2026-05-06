@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPocketBase, isPBConfigured } from '../services/pocketbase';
+import * as supabaseService from '../services/supabase';
 import { db } from '../services/db';
 
 const AuthCallbackPage: React.FC = () => {
@@ -18,42 +18,48 @@ const AuthCallbackPage: React.FC = () => {
             try {
                 addLog('Starting auth callback...');
                 
-                const hash = window.location.hash;
-                const search = window.location.search;
                 addLog(`URL: ${window.location.href}`);
-                addLog(`Hash present: ${hash ? 'yes' : 'no'}`);
-                addLog(`Search present: ${search ? 'yes' : 'no'}`);
                 
-                if (!isPBConfigured()) {
-                    throw new Error('PocketBase not configured');
+                if (!supabaseService.isSupabaseConfigured()) {
+                    throw new Error('Supabase not configured');
                 }
 
-                const pb = getPocketBase();
-                addLog('PocketBase client ready');
+                addLog('Checking for established session...');
+                
+                // Supabase's detectSessionInUrl should have picked up the hash by now,
+                // but we wait a bit to be sure or explicitly get session.
+                let session = await supabaseService.getCurrentSession();
+                
+                if (!session) {
+                    addLog('Session not immediately available, waiting...');
+                    // Try one more time after a short delay
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    session = await supabaseService.getCurrentSession();
+                }
 
-                // Check if already authenticated
-                addLog('Checking for existing session...');
-                if (pb.authStore.isValid) {
-                    addLog(`✅ Already logged in: ${pb.authStore.model?.email || pb.authStore.model?.id}`);
+                if (session?.user) {
+                    addLog(`✅ Logged in: ${session.user.email}`);
+                    
                     try {
                         addLog('Syncing local data to cloud...');
-                        await db.syncToPocketBase();
+                        // Update localStorage so sync works with correct ID
+                        localStorage.setItem('currentUserId', session.user.id);
+                        await db.syncToCloud();
                         addLog('✅ Local data synced to cloud');
                     } catch (syncErr: any) {
                         addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
                     }
-                    localStorage.setItem('currentUserId', pb.authStore.model?.id || '');
+                    
                     addLog('Redirecting to home in 1s...');
                     setTimeout(() => navigate('/'), 1000);
-                    return;
+                } else {
+                    addLog('❌ No session found in URL hash/fragment');
+                    addLog('Check if Google OAuth is enabled in Supabase dashboard');
+                    setTimeout(() => {
+                        addLog('Redirecting to login...');
+                        navigate('/login');
+                    }, 5000);
                 }
-                
-                addLog('❌ No session found');
-                addLog('Check: 1) Email/password login required, 2) Correct PocketBase URL');
-                setTimeout(() => {
-                    addLog('Redirecting to login...');
-                    navigate('/login');
-                }, 5000);
             } catch (err: any) {
                 console.error('Auth callback error:', err);
                 addLog(`❌ Error: ${err.message}`);

@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { User, UserProfile } from '../types';
-import { getPocketBase, isPBConfigured, pbSignIn, pbSignUp, pbSignOut, pbGetCurrentUser, pbIsAuthenticated } from './pocketbase';
+import * as supabaseService from './supabase';
 
 // Password hashing using Web Crypto API
 export async function hashPassword(password: string): Promise<string> {
@@ -45,10 +45,39 @@ export async function getAllUsers(): Promise<User[]> {
     });
 }
 
-// Login user - supports both PocketBase and local auth
-// Priority: local auth for existing users, PocketBase for new email-based users
+// Login user - supports both Supabase and local auth
 export async function loginUser(username: string, password: string): Promise<User | null> {
-    // Check if this is an existing local user first (username, not email)
+    // Try Supabase first if configured (for email-based login or new users)
+    if (supabaseService.isSupabaseConfigured() && username.includes('@')) {
+        try {
+            const { data } = await supabaseService.signInWithPassword(username, password);
+            if (data?.user) {
+                // Fetch profile
+                const profileData = await supabaseService.getProfile(data.user.id);
+                
+                const user: User = {
+                    id: data.user.id,
+                    username: data.user.email || username,
+                    passwordHash: '',
+                    profile: {
+                        name: profileData?.display_name || '',
+                        nativeLanguage: profileData?.native_language || 'uk',
+                        targetLanguage: profileData?.target_language || 'en',
+                        level: (profileData?.learning_level as any) || 'beginner'
+                    },
+                    createdAt: new Date(data.user.created_at).getTime(),
+                    lastLogin: Date.now()
+                };
+
+                localStorage.setItem('currentUserId', user.id);
+                return user;
+            }
+        } catch (err: any) {
+            console.error('Supabase login error:', err);
+        }
+    }
+
+    // Check if this is an existing local user (username, not email)
     const existingLocalUser = await findLocalUserByUsername(username);
 
     if (existingLocalUser) {
@@ -58,33 +87,9 @@ export async function loginUser(username: string, password: string): Promise<Use
             localStorage.setItem('currentUserId', user.id);
             return user;
         }
-        // If local auth fails (wrong password), fall through to PocketBase
     }
 
-    // Try PocketBase if configured (for email-based login or new users)
-    if (isPBConfigured() && username.includes('@')) {
-        try {
-            const result = await pbSignIn(username, password);
-            if (result?.record) {
-                const user: User = {
-                    id: result.record.id,
-                    username: result.record.email || username,
-                    passwordHash: '',
-                    profile: result.record.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
-                    createdAt: new Date(result.record.created || Date.now()).getTime(),
-                    lastLogin: Date.now()
-                };
-
-                localStorage.setItem('currentUserId', user.id);
-                return user;
-            }
-        } catch (err: any) {
-            console.error('PocketBase login error:', err);
-        }
-    }
-
-    // Final fallback: try local auth
-    return await localLogin(username, password);
+    return null;
 }
 
 // Helper to check if a local user exists
@@ -101,7 +106,6 @@ async function localCreateUser(
 ): Promise<User> {
     if (!username || username.trim().length === 0) throw new Error('Username is required');
     if (!password || password.length < 6) throw new Error('Password must be at least 6 characters');
-    if (username.length > 50) throw new Error('Username must be 50 characters or less');
 
     const existingUsers = await getAllUsers();
     const duplicate = existingUsers.find(u => u.username.toLowerCase() === username.trim().toLowerCase());
@@ -157,146 +161,40 @@ async function localLogin(username: string, password: string): Promise<User | nu
     return user;
 }
 
-// Login with Google (kept for backward compatibility, uses PocketBase OAuth)
+// Login with Google (Supabase)
 export async function loginWithGoogle(): Promise<void> {
-    throw new Error('Google OAuth not implemented in PocketBase yet. Use email/password login.');
+    if (!supabaseService.isSupabaseConfigured()) {
+        throw new Error('Supabase cloud sync is not configured.');
+    }
+    await supabaseService.signInWithGoogle();
 }
 
-export async function updateLinkedEmail(newEmail: string): Promise<void> {
-    if (!isPBConfigured()) {
-        throw new Error('Cloud sync is not configured.');
-    }
-
-    if (!isValidEmail(newEmail)) {
-        throw new Error('Please enter a valid email address.');
-    }
-
-    const pb = getPocketBase();
-    if (!pb.authStore.isValid) {
-        throw new Error('You need to be logged in to cloud account.');
-    }
-
-    try {
-        await pb.collection('users').requestEmailChange(newEmail.trim());
-    } catch (error: any) {
-        throw error;
-    }
-}
-
-type LinkEmailResult = {
-    status: 'linked_and_logged_in' | 'verification_required';
-    userId: string;
-    email: string;
-};
-
-function isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-// Link existing local account to PocketBase email/password auth
-export async function linkCurrentLocalAccountWithEmail(email: string, password: string): Promise<LinkEmailResult> {
-    if (!isPBConfigured()) {
-        throw new Error('Cloud sync is not configured.');
-    }
-
-    if (!isValidEmail(email)) {
-        throw new Error('Please enter a valid email address.');
-    }
-
-    if (!password || password.length < 6) {
-        throw new Error('Password must be at least 6 characters.');
-    }
-
-    const currentUserId = localStorage.getItem('currentUserId');
-    if (!currentUserId) {
-        throw new Error('No local user is currently logged in.');
-    }
-
-    const localUser = await getCurrentUser();
-    if (!localUser) {
-        throw new Error('Could not load current local user.');
-    }
-
-    let linkedUserId: string | null = null;
-    let hasSession = false;
-
-    try {
-        const signUpResult = await pbSignUp(email.trim(), password, localUser.profile?.name);
-        linkedUserId = signUpResult?.record?.id || null;
-        hasSession = await pbIsAuthenticated();
-    } catch (err: any) {
-        const message = (err?.message || '').toLowerCase();
-        if (message.includes('already registered') || message.includes('already exists')) {
-            const loginResult = await pbSignIn(email.trim(), password);
-            linkedUserId = loginResult?.record?.id || null;
-            hasSession = await pbIsAuthenticated();
-        } else {
-            throw err;
-        }
-    }
-
-    if (!linkedUserId) {
-        throw new Error('Failed to create or link cloud account.');
-    }
-
-    // If we have a session, we can map local ID to PocketBase user ID immediately.
-    if (hasSession) {
-        localStorage.setItem('currentUserId', linkedUserId);
-    }
-
-    // Save profile to PocketBase (upsert pattern: try get, then update or create)
-    try {
-        const pb = getPocketBase();
-        const userSettingsData = {
-            user_id: linkedUserId,
-            profile: localUser.profile,
-            theme: 'system',
-            notifications_enabled: false,
-            notification_time: '08:00',
-            daily_goal: 5,
-            auto_read_flashcards: false
-        };
-
-        try {
-            const existing = await pb.collection('user_settings').getFirstListItem(`user_id = "${linkedUserId}"`);
-            await pb.collection('user_settings').update(existing.id, userSettingsData);
-        } catch (getErr: any) {
-            if (getErr?.status === 404) {
-                await pb.collection('user_settings').create(userSettingsData);
-            } else {
-                throw getErr;
-            }
-        }
-    } catch (profileErr) {
-        console.warn('Could not save profile during account linking:', profileErr);
-    }
-
-    return {
-        status: hasSession ? 'linked_and_logged_in' : 'verification_required',
-        userId: linkedUserId,
-        email: email.trim()
-    };
-}
-
-// Create new user - supports both PocketBase and local auth
+// Create new user - supports both Supabase and local auth
 export async function createUser(
     username: string,
     password: string,
     profile: UserProfile,
-    email?: string // Optional email for PocketBase auth
+    email?: string // Optional email for Supabase auth
 ): Promise<User> {
-    // Try PocketBase first if configured and email provided
-    if (isPBConfigured() && email) {
+    // Try Supabase first if configured and email provided
+    if (supabaseService.isSupabaseConfigured() && email) {
         try {
-            const result = await pbSignUp(email, password, profile.name);
-            if (!result?.record) {
-                console.log('PocketBase signup returned no user, falling back to local auth...');
-                return await localCreateUser(username, password, profile);
-            }
+            const { data, error } = await supabaseService.signUp(email, password);
+            
+            if (error) throw error;
+            if (!data?.user) throw new Error('Failed to create account');
+
+            // Update profile info immediately (triggers handle_new_user but we can enrich it)
+            await supabaseService.updateProfile(data.user.id, {
+              display_name: profile.name,
+              native_language: profile.nativeLanguage,
+              target_language: profile.targetLanguage,
+              learning_level: profile.level
+            });
 
             const user: User = {
-                id: result.record.id,
-                username,
+                id: data.user.id,
+                username: email,
                 passwordHash: '',
                 profile,
                 createdAt: Date.now(),
@@ -306,12 +204,12 @@ export async function createUser(
             localStorage.setItem('currentUserId', user.id);
             return user;
         } catch (err: any) {
-            console.error('PocketBase createUser error:', err.message || err);
-            console.log('Falling back to local auth...');
+            console.error('[Auth] Supabase createUser error:', err.message || err);
+            throw err;
         }
     }
 
-    // Fallback to local auth (or if PocketBase not configured)
+    // Fallback to local auth
     return await localCreateUser(username, password, profile);
 }
 
@@ -335,31 +233,37 @@ async function updateUser(user: User): Promise<void> {
 }
 
 // Logout user
-export function logoutUser(): void {
-    if (isPBConfigured()) {
-        pbSignOut();
+export async function logoutUser() {
+    if (supabaseService.isSupabaseConfigured()) {
+        await supabaseService.signOut();
     }
     localStorage.removeItem('currentUserId');
 }
 
-// Get current user - supports both PocketBase and local auth
+// Get current user - supports both Supabase and local auth
 export async function getCurrentUser(): Promise<User | null> {
-    // If PocketBase is configured, try it first
-    if (isPBConfigured()) {
-        const pbUser = await pbGetCurrentUser();
-        if (pbUser) {
+    // If Supabase is configured, try it first
+    if (supabaseService.isSupabaseConfigured()) {
+        const session = await supabaseService.getCurrentSession();
+        if (session?.user) {
+            const profileData = await supabaseService.getProfile(session.user.id);
             return {
-                id: pbUser.id,
-                username: pbUser.email || 'user',
+                id: session.user.id,
+                username: session.user.email || 'user',
                 passwordHash: '',
-                profile: pbUser.profile || { name: '', nativeLanguage: 'uk', targetLanguage: 'en', level: 'beginner' },
-                createdAt: new Date(pbUser.created || Date.now()).getTime(),
+                profile: {
+                    name: profileData?.display_name || '',
+                    nativeLanguage: profileData?.native_language || 'uk',
+                    targetLanguage: profileData?.target_language || 'en',
+                    level: (profileData?.learning_level as any) || 'beginner'
+                },
+                createdAt: new Date(session.user.created_at).getTime(),
                 lastLogin: Date.now()
             };
         }
     }
 
-    // Fall back to local auth (either PocketBase not configured, or no session)
+    // Fall back to local auth
     const userId = localStorage.getItem('currentUserId');
     if (!userId) return null;
 
@@ -389,8 +293,9 @@ export function getCurrentUserId(): string | null {
     return localStorage.getItem('currentUserId');
 }
 
-// Check if user is authenticated with PocketBase (has valid session)
-export async function isUsingPBAuth(): Promise<boolean> {
-    if (!isPBConfigured()) return false;
-    return await pbIsAuthenticated();
+// Check if user is authenticated with Supabase
+export async function isUsingCloudAuth(): Promise<boolean> {
+    if (!supabaseService.isSupabaseConfigured()) return false;
+    const session = await supabaseService.getCurrentSession();
+    return !!session;
 }

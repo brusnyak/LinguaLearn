@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, getAllUsers } from '../services/auth';
-import { isPBConfigured } from '../services/pocketbase';
+import { loginUser, getAllUsers, loginWithGoogle } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
 import { LogIn, UserPlus } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [existingUsers, setExistingUsers] = useState<string[]>([]);
-    const [isPBEnabled, setIsPBEnabled] = useState(false);
+    const [isCloudEnabled, setIsCloudEnabled] = useState(false);
 
     useEffect(() => {
         loadExistingUsers();
@@ -20,8 +20,8 @@ const LoginPage: React.FC = () => {
         if (lastUsername) {
             setUsername(lastUsername);
         }
-        // Check if PocketBase is configured
-        setIsPBEnabled(isPBConfigured());
+        // Check if Supabase is configured
+        setIsCloudEnabled(isSupabaseConfigured());
     }, []);
 
     const loadExistingUsers = async () => {
@@ -63,6 +63,17 @@ const LoginPage: React.FC = () => {
         }
     };
 
+    const handleGoogleLogin = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            await loginWithGoogle();
+        } catch (err: any) {
+            setError(err.message || 'Google login failed');
+            setLoading(false);
+        }
+    };
+
     const handleCreateAccount = () => {
         navigate('/onboarding');
     };
@@ -95,7 +106,7 @@ const LoginPage: React.FC = () => {
                         />
                         {existingUsers.length > 0 && (
                             <div className="mt-2 text-xs text-[var(--color-text-muted)]">
-                                Existing users: {existingUsers.join(', ')}
+                                Local users: {existingUsers.join(', ')}
                             </div>
                         )}
                     </div>
@@ -135,6 +146,19 @@ const LoginPage: React.FC = () => {
                     </button>
                 </form>
 
+                {/* Google Login Button */}
+                {isCloudEnabled && (
+                    <button
+                        type="button"
+                        onClick={handleGoogleLogin}
+                        disabled={loading}
+                        className="w-full mt-4 px-6 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-3 shadow-sm"
+                    >
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                        Sign in with Google
+                    </button>
+                )}
+
                 {/* Divider */}
                 <div className="relative flex items-center mt-6 mb-4">
                     <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
@@ -149,12 +173,12 @@ const LoginPage: React.FC = () => {
                     className="w-full px-6 py-3 border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2"
                 >
                     <UserPlus size={20} />
-                    Create New Account (with Cloud Sync)
+                    Create New Account
                 </button>
 
-                {isPBEnabled && (
+                {isCloudEnabled && (
                     <p className="text-center text-xs text-[var(--color-text-muted)] mt-4">
-                        ✓ PocketBase cloud sync enabled
+                        ✓ Supabase cloud sync active
                     </p>
                 )}
             </div>

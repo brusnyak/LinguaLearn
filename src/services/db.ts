@@ -1,37 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { Word, UserSettings, UserProgress } from '../types';
-import { getCurrentUserId } from './auth';
-import { isPBConfigured, pbIsAuthenticated, syncWordsToPB, syncWordsFromPB, syncSettingsToPB, syncSettingsFromPB, syncProgressToPB, syncProgressFromPB, pbGetCurrentUser } from './pocketbase';
-
-interface LinguaDB extends DBSchema {
-    words: {
-        key: string;
-        value: Word;
-        indexes: { 'by-term': string; 'by-category': string; 'by-userId': string };
-    };
-    settings: {
-        key: string;
-        value: UserSettings;
-    };
-    users: {
-        key: string;
-        value: any;
-    };
-    progress: {
-        key: string;
-        value: UserProgress;
-    };
-    translations: {
-        key: string;
-        value: {
-            text: string;
-            from: string;
-            to: string;
-            translation: string;
-            timestamp: number;
-        };
-    };
-}
+import { getCurrentUserId, isUsingCloudAuth } from './auth';
+import * as supabaseService from './supabase';
 
 interface LinguaDB extends DBSchema {
     words: {
@@ -108,10 +78,8 @@ export const db = {
             const allWords = await db.getAll('words');
 
             // Filter words: if userId exists, show only that user's words
-            // If no userId (legacy/local), show all words (backward compatibility)
             const filteredWords = userId
                 ? allWords.filter(w => {
-                    // Include words with matching userId OR words without userId (legacy)
                     if (!w.userId) return true;
                     return w.userId === userId;
                 })
@@ -157,9 +125,9 @@ export const db = {
 
             await db.put('words', cleanWord);
 
-            // Sync to PocketBase if configured
-            if (isPBConfigured() && await pbIsAuthenticated()) {
-                await syncWordsToPB([cleanWord]);
+            // Sync to Supabase if configured
+            if (await isUsingCloudAuth()) {
+                await supabaseService.syncWordsToSupabase([cleanWord]);
             }
 
             return cleanWord.id;
@@ -174,15 +142,11 @@ export const db = {
             const db = await initDB();
             await db.delete('words', id);
 
-            // Sync deletion to PocketBase if configured
-            if (isPBConfigured() && await pbIsAuthenticated()) {
-                const pb = await import('./pocketbase').then(m => m.getPocketBase());
-                if (pb) {
-                    try {
-                        await pb.collection('words').delete(id);
-                    } catch (e) {
-                        console.error('Failed to delete word from PocketBase:', e);
-                    }
+            // Sync deletion to Supabase if configured
+            if (await isUsingCloudAuth()) {
+                const client = supabaseService.getSupabase();
+                if (client) {
+                    await client.from('words').delete().eq('id', id);
                 }
             }
         } catch (error) {
@@ -202,9 +166,9 @@ export const db = {
             const updatedWord = { ...existingWord, ...updates };
             await db.put('words', updatedWord);
 
-            // Sync to PocketBase if configured
-            if (isPBConfigured() && await pbIsAuthenticated()) {
-                await syncWordsToPB([updatedWord]);
+            // Sync to Supabase if configured
+            if (await isUsingCloudAuth()) {
+                await supabaseService.syncWordsToSupabase([updatedWord]);
             }
         } catch (error) {
             console.error('Failed to update word:', error);
@@ -261,11 +225,11 @@ export const db = {
 
             await tx.done;
 
-            // Sync to PocketBase if configured
-            if (isPBConfigured() && await pbIsAuthenticated() && backup.words) {
-                await syncWordsToPB(backup.words);
-                if (backup.settings) await syncSettingsToPB(backup.settings);
-                if (backup.progress) await syncProgressToPB(backup.progress);
+            // Sync to Supabase if configured
+            if (await isUsingCloudAuth() && backup.words) {
+                await supabaseService.syncWordsToSupabase(backup.words);
+                if (backup.settings) await supabaseService.syncSettingsToSupabase(backup.settings);
+                if (backup.progress) await supabaseService.syncProgressToSupabase(backup.progress);
             }
         } catch (error) {
             console.error('Failed to restore data:', error);
@@ -282,9 +246,9 @@ export const db = {
         const db = await initDB();
         await db.put('settings', settings, 'user-settings');
 
-        // Sync to PocketBase if configured
-        if (isPBConfigured() && await pbIsAuthenticated()) {
-            await syncSettingsToPB(settings);
+        // Sync to Supabase if configured
+        if (await isUsingCloudAuth()) {
+            await supabaseService.syncSettingsToSupabase(settings);
         }
     },
 
@@ -314,9 +278,9 @@ export const db = {
         const key = userId ? `progress-${userId}` : 'progress';
         await db.put('progress', progress, key);
 
-        // Sync to PocketBase if configured
-        if (isPBConfigured() && await pbIsAuthenticated()) {
-            await syncProgressToPB(progress);
+        // Sync to Supabase if configured
+        if (await isUsingCloudAuth()) {
+            await supabaseService.syncProgressToSupabase(progress);
         }
     },
 
@@ -346,18 +310,15 @@ export const db = {
         }, key);
     },
 
-    // Sync all local data to PocketBase and update local user ID
-    async syncToPocketBase(): Promise<void> {
-        if (!isPBConfigured()) return;
-
-        const isAuth = await pbIsAuthenticated();
-        if (!isAuth) {
-            throw new Error('Not logged in to PocketBase. Please login first.');
+    // Sync all local data to Supabase and update local user ID
+    async syncToCloud(): Promise<void> {
+        if (!(await isUsingCloudAuth())) {
+            throw new Error('Not logged in to cloud. Please login first.');
         }
 
-        const pbUser = await pbGetCurrentUser();
-        if (!pbUser) throw new Error('No PocketBase user found');
-        const pbUserId = pbUser.id;
+        const session = await supabaseService.getCurrentSession();
+        if (!session?.user) throw new Error('No Supabase user found');
+        const cloudUserId = session.user.id;
         const localUserId = getCurrentUserId();
 
         // Get all local data
@@ -365,13 +326,13 @@ export const db = {
         const settings = await this.getSettings();
         const progress = await this.getProgress();
 
-        // Sync to PocketBase
-        if (words.length > 0) await syncWordsToPB(words);
-        if (settings) await syncSettingsToPB(settings);
-        if (progress) await syncProgressToPB(progress);
+        // Sync to Supabase
+        if (words.length > 0) await supabaseService.syncWordsToSupabase(words);
+        if (settings) await supabaseService.syncSettingsToSupabase(settings);
+        if (progress) await supabaseService.syncProgressToSupabase(progress);
 
-        // Update local user ID to match PocketBase user ID
-        if (localUserId && localUserId !== pbUserId) {
+        // Update local user ID to match Supabase user ID
+        if (localUserId && localUserId !== cloudUserId) {
             const dbInstance = await initDB();
 
             // Update words
@@ -379,7 +340,7 @@ export const db = {
             const allWords = await tx.store.getAll();
             for (const word of allWords) {
                 if (!word.userId || word.userId === localUserId) {
-                    word.userId = pbUserId;
+                    word.userId = cloudUserId;
                     await tx.store.put(word);
                 }
             }
@@ -388,11 +349,11 @@ export const db = {
             // Update progress key
             if (progress) {
                 await dbInstance.delete('progress', `progress-${localUserId}`);
-                await dbInstance.put('progress', progress, `progress-${pbUserId}`);
+                await dbInstance.put('progress', progress, `progress-${cloudUserId}`);
             }
 
             // Update currentUserId in localStorage
-            localStorage.setItem('currentUserId', pbUserId);
+            localStorage.setItem('currentUserId', cloudUserId);
 
             // Update user in users store
             const userTx = dbInstance.transaction('users', 'readwrite');
@@ -400,20 +361,20 @@ export const db = {
             const localUser = await userStore.get(localUserId);
             if (localUser) {
                 await userStore.delete(localUserId);
-                localUser.id = pbUserId;
+                localUser.id = cloudUserId;
                 await userStore.put(localUser);
             }
             await userTx.done;
         }
     },
 
-    // Pull data from PocketBase to local
-    async syncFromPocketBase(): Promise<void> {
-        if (!isPBConfigured()) return;
+    // Pull data from Supabase to local
+    async syncFromCloud(): Promise<void> {
+        if (!(await isUsingCloudAuth())) return;
 
-        const remoteWords = await syncWordsFromPB();
-        const remoteSettings = await syncSettingsFromPB();
-        const remoteProgress = await syncProgressFromPB();
+        const remoteWords = await supabaseService.syncWordsFromSupabase();
+        const remoteSettings = await supabaseService.syncSettingsFromSupabase();
+        const remoteProgress = await supabaseService.syncProgressFromSupabase();
 
         const db = await initDB();
 
