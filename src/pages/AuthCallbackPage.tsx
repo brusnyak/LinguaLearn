@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSupabase, isSupabaseConfigured } from '../services/supabase';
+import { db } from '../services/db';
 
 const AuthCallbackPage: React.FC = () => {
     const navigate = useNavigate();
@@ -51,6 +52,13 @@ const AuthCallbackPage: React.FC = () => {
                                 addLog(`setSession error: ${error.message}`);
                             } else if (data.session) {
                                 addLog(`✅ Session set! User: ${data.session.user.email}`);
+                                try {
+                                    addLog('Syncing local data to cloud...');
+                                    await db.syncToSupabase();
+                                    addLog('✅ Local data synced to cloud');
+                                } catch (syncErr: any) {
+                                    addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
+                                }
                                 localStorage.setItem('currentUserId', data.session.user.id);
                                 addLog('Redirecting to home in 1s...');
                                 setTimeout(() => navigate('/'), 1000);
@@ -74,6 +82,13 @@ const AuthCallbackPage: React.FC = () => {
                 
                 if (session) {
                     addLog(`✅ Logged in as: ${session.user.email || session.user.id}`);
+                    try {
+                        addLog('Syncing local data to cloud...');
+                        await db.syncToSupabase();
+                        addLog('✅ Local data synced to cloud');
+                    } catch (syncErr: any) {
+                        addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
+                    }
                     localStorage.setItem('currentUserId', session.user.id);
                     setTimeout(() => {
                         addLog('Redirecting to home...');

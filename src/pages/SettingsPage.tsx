@@ -4,7 +4,7 @@ import AppearanceSettings from '../components/AppearanceSettings';
 import { db, initDB } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
-import { getCurrentUser, logoutUser, loginWithGoogle, isUsingSupabaseAuth } from '../services/auth';
+import { getCurrentUser, logoutUser, loginWithGoogle, isUsingSupabaseAuth, linkCurrentLocalAccountWithEmail, updateLinkedEmail } from '../services/auth';
 import { isSupabaseConfigured } from '../services/supabase';
 
 const SettingsPage: React.FC = () => {
@@ -24,6 +24,11 @@ const SettingsPage: React.FC = () => {
     const [isImporting, setIsImporting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [isUsingSupabase, setIsUsingSupabase] = useState(false);
+    const [linkEmail, setLinkEmail] = useState('');
+    const [linkPassword, setLinkPassword] = useState('');
+    const [isLinkingEmail, setIsLinkingEmail] = useState(false);
+    const [newLinkedEmail, setNewLinkedEmail] = useState('');
+    const [isUpdatingLinkedEmail, setIsUpdatingLinkedEmail] = useState(false);
 
     useEffect(() => {
         loadSettings();
@@ -226,6 +231,44 @@ const SettingsPage: React.FC = () => {
             await loginWithGoogle();
         } catch (error: any) {
             showToast(error.message || 'Google login failed', 'error');
+        }
+    };
+
+    const handleLinkEmailAccount = async () => {
+        setIsLinkingEmail(true);
+        try {
+            const result = await linkCurrentLocalAccountWithEmail(linkEmail, linkPassword);
+
+            if (result.status === 'verification_required') {
+                localStorage.setItem('pendingCloudSyncAfterVerification', 'true');
+                showToast('Verification email sent. Confirm it, then login with email and sync to cloud.', 'success');
+                return;
+            }
+
+            await db.syncToSupabase();
+            setLinkEmail('');
+            setLinkPassword('');
+            await checkSupabaseAuth();
+            await loadCurrentUser();
+            showToast('Cloud account linked and local data synced.', 'success');
+        } catch (error: any) {
+            showToast(error.message || 'Failed to link email account', 'error');
+        } finally {
+            setIsLinkingEmail(false);
+        }
+    };
+
+    const handleUpdateLinkedEmail = async () => {
+        setIsUpdatingLinkedEmail(true);
+        try {
+            await updateLinkedEmail(newLinkedEmail);
+            setNewLinkedEmail('');
+            showToast('Email update requested. Check your inbox to confirm the new email.', 'success');
+            await loadCurrentUser();
+        } catch (error: any) {
+            showToast(error.message || 'Failed to update linked email', 'error');
+        } finally {
+            setIsUpdatingLinkedEmail(false);
         }
     };
 
@@ -468,6 +511,23 @@ const SettingsPage: React.FC = () => {
                                     <Download size={18} /> {isSyncing ? 'Syncing...' : 'Sync from Cloud'}
                                 </button>
                             </div>
+                            <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
+                                <p className="text-sm font-medium">Change linked email</p>
+                                <input
+                                    type="email"
+                                    value={newLinkedEmail}
+                                    onChange={(e) => setNewLinkedEmail(e.target.value)}
+                                    placeholder="new@email.com"
+                                    className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                />
+                                <button
+                                    onClick={handleUpdateLinkedEmail}
+                                    disabled={isUpdatingLinkedEmail || !newLinkedEmail.trim()}
+                                    className="w-full px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors disabled:opacity-50"
+                                >
+                                    {isUpdatingLinkedEmail ? 'Updating...' : 'Update Linked Email'}
+                                </button>
+                            </div>
                         </>
                     ) : (
                         <>
@@ -488,6 +548,30 @@ const SettingsPage: React.FC = () => {
                                     <Chrome size={20} />
                                     Login with Google
                                 </button>
+                                <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
+                                    <p className="text-sm font-medium">Or link with email/password</p>
+                                    <input
+                                        type="email"
+                                        value={linkEmail}
+                                        onChange={(e) => setLinkEmail(e.target.value)}
+                                        placeholder="your@email.com"
+                                        className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    />
+                                    <input
+                                        type="password"
+                                        value={linkPassword}
+                                        onChange={(e) => setLinkPassword(e.target.value)}
+                                        placeholder="Choose password (min 6 chars)"
+                                        className="w-full p-3 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                                    />
+                                    <button
+                                        onClick={handleLinkEmailAccount}
+                                        disabled={isLinkingEmail || !linkEmail.trim() || !linkPassword}
+                                        className="w-full px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50"
+                                    >
+                                        {isLinkingEmail ? 'Linking...' : 'Link Email Account'}
+                                    </button>
+                                </div>
                                 {currentUsername && (
                                     <p className="text-xs text-[var(--color-text-muted)] text-center">
                                         Or create a cloud account with email in the onboarding flow.

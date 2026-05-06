@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
 import { importFromFile, createCSVTemplate, createTextTemplate, type ImportResult } from '../services/import';
+import { translateWordsToUkrainian } from '../services/openrouter';
 import type { Word } from '../types';
 import { Search, Plus, Volume2, Upload, X, Check, Filter } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -18,6 +19,7 @@ const DictionaryPage: React.FC = () => {
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
     const [templateFormat, setTemplateFormat] = useState<'csv' | 'text'>('csv');
+    const [translatingImport, setTranslatingImport] = useState(false);
 
     useEffect(() => {
         loadWords();
@@ -70,6 +72,44 @@ const DictionaryPage: React.FC = () => {
         } catch (error) {
             console.error('Failed to save imported words:', error);
             showToast('Failed to save imported words', 'error');
+        }
+    };
+
+    const handleTranslateImportToUkrainian = async () => {
+        if (!importResult || !importResult.success || importResult.words.length === 0) return;
+
+        setTranslatingImport(true);
+        try {
+            const translated = await translateWordsToUkrainian(
+                importResult.words.map(w => ({ term: w.term, translation: w.translation }))
+            );
+
+            const updatedWords: Word[] = importResult.words.map((original, index) => {
+                const translatedWord = translated[index];
+                if (!translatedWord) return original;
+
+                return {
+                    ...original,
+                    term: translatedWord.term || original.term,
+                    translation: translatedWord.translation || original.translation,
+                    category: translatedWord.category || original.category,
+                };
+            });
+
+            setImportResult({
+                ...importResult,
+                words: updatedWords,
+                detectedFormat: importResult.detectedFormat
+                    ? `${importResult.detectedFormat} + ai-translation`
+                    : 'ai-translation',
+            });
+
+            showToast('Translations updated to Ukrainian.', 'success');
+        } catch (error) {
+            console.error('Failed to translate imported words:', error);
+            showToast('Failed to translate imported words', 'error');
+        } finally {
+            setTranslatingImport(false);
         }
     };
 
@@ -264,10 +304,25 @@ const DictionaryPage: React.FC = () => {
                                             <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
                                                 <Check size={20} />
                                                 <span className="font-bold">Ready to import</span>
+                                                {importResult.aiPowered && (
+                                                    <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full">
+                                                        AI-Powered
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-sm mt-1">
                                                 {importResult.imported} words found ({importResult.skipped} skipped)
                                             </p>
+                                            {importResult.detectedFormat && (
+                                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                    Detected format: {importResult.detectedFormat}
+                                                </p>
+                                            )}
+                                            {importResult.words.some(w => !/[а-яїієґ]/i.test(w.translation)) && (
+                                                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                                                    ⚠️ Some translations may not be in Ukrainian. Consider using AI to translate.
+                                                </p>
+                                            )}
                                         </div>
                                         <div className="max-h-40 overflow-y-auto border rounded-lg">
                                             {importResult.words.slice(0, 5).map((word, i) => (
@@ -298,6 +353,15 @@ const DictionaryPage: React.FC = () => {
                                     >
                                         Download Template
                                     </button>
+                                    {importResult?.success && importResult.words.some(w => !/[а-яїієґ]/i.test(w.translation)) && (
+                                        <button
+                                            onClick={handleTranslateImportToUkrainian}
+                                            disabled={translatingImport}
+                                            className="flex-1 py-2 bg-purple-500 text-white rounded-lg font-bold hover:bg-purple-600 disabled:opacity-50"
+                                        >
+                                            {translatingImport ? 'Translating...' : 'Translate to Ukrainian'}
+                                        </button>
+                                    )}
                                     {importResult?.success ? (
                                         <button
                                             onClick={handleConfirmImport}

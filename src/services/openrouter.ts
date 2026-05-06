@@ -488,6 +488,192 @@ Provide ONLY the perfect phrase, nothing else:`;
 }
 
 /**
+ * Smart file import using AI - parses any file format to extract vocabulary words
+ */
+export async function smartImportWords(
+    fileContent: string, 
+    fileName: string,
+    fileType: 'csv' | 'excel' | 'text' = 'text'
+): Promise<{ 
+    words: Array<{term: string, translation: string, category?: string}>, 
+    errors: string[],
+    detectedFormat?: string 
+}> {
+    if (!API_KEY) {
+        return { 
+            words: [], 
+            errors: ['OpenRouter API key not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.'] 
+        };
+    }
+
+    const prompt = `You are parsing a vocabulary file for a language learning app. The app needs words in this format:
+- term: the word to learn (English)
+- translation: the meaning in Ukrainian (кирилиця)
+- category: optional category
+
+FILE: ${fileName}
+TYPE: ${fileType}
+CONTENT (first 10000 chars):
+---
+${fileContent.substring(0, 10000)}
+---
+
+TASK: Analyze this file and extract vocabulary words. The file may contain:
+1. English-Ukrainian pairs
+2. English synonym pairs (like "Noisy,Raucous" meaning the words are synonyms)
+3. Any other vocabulary structure
+
+INSTRUCTIONS:
+1. Identify the structure of the file
+2. Extract words that should be imported
+3. For each word, provide:
+   - "term": the English word to learn
+   - "translation": the Ukrainian translation OR the English synonym (if no Ukrainian available, use the synonym as translation but prefix with "syn: ")
+   - "category": if detectable, otherwise "Other"
+
+4. If the file has English synonyms (like "Noisy,Raucous"), treat them as separate vocabulary entries where learners should know both words.
+
+RETURN ONLY A JSON ARRAY:
+[
+  {"term": "noisy", "translation": "галасливий", "category": "adjectives"},
+  {"term": "raucous", "translation": "syn: noisy", "category": "adjectives"}
+]
+
+If you see Ukrainian text, use it as the translation. If not, note that translation may be needed.
+IMPORTANT: Return ONLY the JSON array, nothing else. Max 200 words.`;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'LinguaLearn',
+            },
+            body: JSON.stringify({
+                model: 'openrouter/free',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 4000,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`OpenRouter error: ${error}`);
+        }
+
+        const data = await response.json();
+        const result = data.choices?.[0]?.message?.content?.trim() || '';
+
+        // Extract JSON array from response
+        const jsonMatch = result.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            return { 
+                words: [], 
+                errors: ['Could not parse file content. The AI could not understand the file structure.'],
+                detectedFormat: 'unknown'
+            };
+        }
+
+        try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            if (!Array.isArray(parsed)) {
+                return { words: [], errors: ['Invalid format returned by AI parser.'], detectedFormat: 'unknown' };
+            }
+
+            const words = parsed
+                .filter((item: any) => item.term && item.translation)
+                .map((item: any) => ({
+                    term: String(item.term).trim(),
+                    translation: String(item.translation).trim(),
+                    category: item.category ? String(item.category).trim() : 'Other'
+                }));
+
+            return { 
+                words, 
+                errors: words.length === 0 ? ['No valid words found in the file.'] : [],
+                detectedFormat: 'ai-parsed'
+            };
+        } catch (parseError) {
+            console.error('Failed to parse AI response:', parseError);
+            return { words: [], errors: ['Failed to parse AI response. Please try again.'], detectedFormat: 'unknown' };
+        }
+    } catch (error: any) {
+        console.error('Error in smart import:', error);
+        return { words: [], errors: [`Smart import failed: ${error.message}`], detectedFormat: 'unknown' };
+    }
+}
+
+/**
+ * Translate words to Ukrainian using AI
+ */
+export async function translateWordsToUkrainian(words: Array<{term: string, translation: string}>): Promise<Array<{term: string, translation: string, category?: string}>> {
+    if (!API_KEY) {
+        console.warn('OpenRouter API key not configured. Skipping translation.');
+        return words;
+    }
+
+    const prompt = `Translate the following English words to Ukrainian. 
+For each word, provide the Ukrainian translation.
+
+Words to translate:
+${words.map((w, i) => `${i + 1}. ${w.term} (synonym: ${w.translation})`).join('\n')}
+
+Return ONLY a JSON array in this format:
+[
+  {"term": "noisy", "translation": "галасливий", "category": "adjectives"},
+  {"term": "raucous", "translation": "рейкувати", "category": "adjectives"}
+]
+
+Keep the same order as the input. If a word is already in Ukrainian, keep it as is.`;
+
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${API_KEY}`,
+                'HTTP-Referer': window.location.origin,
+                'X-Title': 'LinguaLearn',
+            },
+            body: JSON.stringify({
+                model: 'openrouter/free',
+                messages: [{ role: 'user', content: prompt }],
+                max_tokens: 4000,
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`OpenRouter error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        const result = data.choices?.[0]?.message?.content?.trim() || '';
+
+        const jsonMatch = result.match(/\[[\s\S]*\]/);
+        if (!jsonMatch) {
+            console.warn('Could not parse translation result, using original words');
+            return words;
+        }
+
+        const translated = JSON.parse(jsonMatch[0]);
+        if (!Array.isArray(translated)) {
+            return words;
+        }
+
+        return translated.map((item: any) => ({
+            term: String(item.term || '').trim(),
+            translation: String(item.translation || '').trim(),
+            category: item.category || 'Other'
+        }));
+    } catch (error) {
+        console.error('Error translating words:', error);
+        return words; // Return original words on error
+    }
+}
+
+/**
  * Get story topics suggestions
  */
 export const STORY_TOPICS = [

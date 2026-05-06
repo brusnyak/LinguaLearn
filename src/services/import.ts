@@ -2,6 +2,7 @@
 import * as XLSX from 'xlsx';
 import { v4 as uuidv4 } from 'uuid';
 import type { Word } from '../types';
+import { smartImportWords } from './openrouter';
 
 export interface ImportResult {
     success: boolean;
@@ -9,6 +10,8 @@ export interface ImportResult {
     errors: string[];
     imported: number;
     skipped: number;
+    detectedFormat?: string;
+    aiPowered?: boolean;
 }
 
 // Expected column names (flexible matching)
@@ -108,12 +111,24 @@ export function importFromCSV(csvContent: string): ImportResult {
         const categoryCol = findColumn(headers, CATEGORY_COLUMNS);
         const associationCol = findColumn(headers, ASSOCIATION_COLUMNS);
 
-        if (!termCol) {
-            result.errors.push('Could not find term/word column. Expected: term, word, english, en');
-            return result;
-        }
-        if (!translationCol) {
-            result.errors.push('Could not find translation column. Expected: translation, word_uk, ukrainian, uk, target');
+        // If standard columns not found, try to parse as synonym pairs
+        if (!termCol || !translationCol) {
+            // Check if we have 4+ columns (potential synonym pairs format)
+            const nonEmptyHeaders = headers
+                .map((h, i) => ({ header: h, index: i }))
+                .filter(item => item.header && item.header.trim() !== '');
+            
+            if (nonEmptyHeaders.length >= 4) {
+                // Assume pairs: (col1, col2), (col3, col4), etc.
+                return parseCSVSynonymPairs(lines);
+            }
+            
+            if (!termCol) {
+                result.errors.push('Could not find term/word column. Expected: term, word, english, en');
+            }
+            if (!translationCol) {
+                result.errors.push('Could not find translation column. Expected: translation, word_uk, ukrainian, uk, target');
+            }
             return result;
         }
 
@@ -159,6 +174,59 @@ export function importFromCSV(csvContent: string): ImportResult {
 }
 
 /**
+ * Parse CSV with synonym pairs format (4+ columns, pairs of synonyms)
+ */
+function parseCSVSynonymPairs(lines: string[]): ImportResult {
+    const result: ImportResult = {
+        success: false,
+        words: [],
+        errors: [],
+        imported: 0,
+        skipped: 0,
+    };
+
+    const headers = parseCSVLine(lines[0]);
+    
+    for (let i = 1; i < lines.length; i++) {
+        const values = parseCSVLine(lines[i]);
+        
+        // Process pairs: (0,1), (2,3), (4,5), etc.
+        for (let j = 0; j < headers.length - 1; j += 2) {
+            const term = parseStringValue(values[j]);
+            const translation = parseStringValue(values[j + 1]);
+
+            if (!term || !translation) {
+                result.skipped++;
+                continue;
+            }
+
+            const word: Word = {
+                id: uuidv4(),
+                term,
+                translation,
+                category: 'Other',
+                type: 'word',
+                masteryLevel: 0,
+                lastReviewed: 0,
+                timesCorrect: 0,
+                isMastered: false,
+                association: '',
+                createdAt: Date.now(),
+            };
+
+            result.words.push(word);
+            result.imported++;
+        }
+    }
+
+    result.success = result.imported > 0;
+    if (!result.success) {
+        result.errors.push('No valid word pairs found in the file');
+    }
+    return result;
+}
+
+/**
  * Import words from Excel file (ArrayBuffer)
  */
 export function importFromExcel(buffer: ArrayBuffer): ImportResult {
@@ -181,18 +249,38 @@ export function importFromExcel(buffer: ArrayBuffer): ImportResult {
             return result;
         }
 
-        const headers = jsonData[0].map(h => String(h || ''));
+        // Filter out empty rows and clean headers
+        const validRows = jsonData.filter(row => row && row.some(cell => cell !== undefined && cell !== null && cell !== ''));
+        
+        if (validRows.length < 2) {
+            result.errors.push('No valid data rows found in Excel file');
+            return result;
+        }
+
+        const headers = validRows[0].map(h => h !== undefined && h !== null ? String(h).trim() : '');
         const termCol = findColumn(headers, TERM_COLUMNS);
         const translationCol = findColumn(headers, TRANSLATION_COLUMNS);
         const categoryCol = findColumn(headers, CATEGORY_COLUMNS);
         const associationCol = findColumn(headers, ASSOCIATION_COLUMNS);
 
-        if (!termCol) {
-            result.errors.push('Could not find term/word column. Expected: term, word, english, en');
-            return result;
-        }
-        if (!translationCol) {
-            result.errors.push('Could not find translation column. Expected: translation, word_uk, ukrainian, uk, target');
+        if (!termCol || !translationCol) {
+            // If standard columns not found, try to intelligently parse the data
+            // Assume first two non-empty columns are term and translation
+            const nonEmptyCols = headers
+                .map((h, i) => ({ header: h, index: i }))
+                .filter(item => item.header && item.header !== '');
+            
+            if (nonEmptyCols.length >= 2) {
+                // Try to parse as synonym pairs (col1=synonym1, col2=synonym2, col3=synonym3, col4=synonym4)
+                return parseSynonymPairs(validRows, nonEmptyCols.map(c => c.index));
+            }
+            
+            if (!termCol) {
+                result.errors.push('Could not find term/word column. Expected: term, word, english, en');
+            }
+            if (!translationCol) {
+                result.errors.push('Could not find translation column. Expected: translation, word_uk, ukrainian, uk, target');
+            }
             return result;
         }
 
@@ -201,8 +289,10 @@ export function importFromExcel(buffer: ArrayBuffer): ImportResult {
         const categoryIndex = categoryCol ? headers.indexOf(categoryCol) : -1;
         const associationIndex = associationCol ? headers.indexOf(associationCol) : -1;
 
-        for (let i = 1; i < jsonData.length; i++) {
-            const row = jsonData[i];
+        for (let i = 1; i < validRows.length; i++) {
+            const row = validRows[i];
+            if (!row) continue;
+            
             const term = parseStringValue(row[termIndex]);
             const translation = parseStringValue(row[translationIndex]);
 
@@ -238,6 +328,58 @@ export function importFromExcel(buffer: ArrayBuffer): ImportResult {
 }
 
 /**
+ * Parse synonym pairs from data (e.g., Normal English, Advanced English columns)
+ */
+function parseSynonymPairs(rows: any[][], colIndexes: number[]): ImportResult {
+    const result: ImportResult = {
+        success: false,
+        words: [],
+        errors: [],
+        imported: 0,
+        skipped: 0,
+    };
+
+    // Group columns into pairs (col1,col2), (col3,col4), etc.
+    for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+
+        for (let j = 0; j < colIndexes.length - 1; j += 2) {
+            const term = parseStringValue(row[colIndexes[j]]);
+            const translation = parseStringValue(row[colIndexes[j + 1]]);
+
+            if (!term || !translation) {
+                result.skipped++;
+                continue;
+            }
+
+            const word: Word = {
+                id: uuidv4(),
+                term,
+                translation,
+                category: 'Other',
+                type: 'word',
+                masteryLevel: 0,
+                lastReviewed: 0,
+                timesCorrect: 0,
+                isMastered: false,
+                association: '',
+                createdAt: Date.now(),
+            };
+
+            result.words.push(word);
+            result.imported++;
+        }
+    }
+
+    result.success = result.imported > 0;
+    if (!result.success) {
+        result.errors.push('No valid word pairs found in the file');
+    }
+    return result;
+}
+
+/**
  * Import words from plain text file (one word per line, format: term=translation)
  */
 export function importFromText(textContent: string): ImportResult {
@@ -256,6 +398,8 @@ export function importFromText(textContent: string): ImportResult {
             result.errors.push('Text file is empty');
             return result;
         }
+
+        let validPairsFound = 0;
 
         for (const line of lines) {
             const trimmed = line.trim();
@@ -284,12 +428,20 @@ export function importFromText(textContent: string): ImportResult {
                 term = parts[0].trim();
                 translation = parts.slice(1).join('\t').trim();
             } else {
-                // Single word - use as both term and translation
-                term = trimmed;
-                translation = trimmed;
+                // Single word without delimiter - skip, as we can't determine term vs translation
+                result.skipped++;
+                continue;
             }
 
-            if (!term || !translation) {
+            // Validate that both term and translation look like real words (not sentences)
+            if (!term || !translation || term.length < 1 || translation.length < 1) {
+                result.skipped++;
+                continue;
+            }
+
+            // Skip lines where term or translation look like sentences (too long or contain spaces)
+            // A vocabulary word should typically be 1-3 words, not a full sentence
+            if (term.split(/\s+/).length > 4 || translation.split(/\s+/).length > 4) {
                 result.skipped++;
                 continue;
             }
@@ -310,9 +462,14 @@ export function importFromText(textContent: string): ImportResult {
 
             result.words.push(word);
             result.imported++;
+            validPairsFound++;
         }
 
         result.success = result.imported > 0;
+        
+        if (validPairsFound === 0 && lines.length > 0) {
+            result.errors.push('No valid word pairs found. Use format: term=translation or term-translation or term:translation');
+        }
     } catch (error: any) {
         result.errors.push('Failed to parse text file: ' + error.message);
     }
@@ -321,39 +478,124 @@ export function importFromText(textContent: string): ImportResult {
 }
 
 /**
- * Import from file by extension
+ * Import from file by extension - with AI fallback
  */
 export async function importFromFile(file: File): Promise<ImportResult> {
     const extension = file.name.split('.').pop()?.toLowerCase();
 
-    if (extension === 'csv') {
+    try {
+        // For Excel files
+        if (extension === 'xlsx' || extension === 'xls') {
+            const buffer = await file.arrayBuffer();
+            const excelResult = importFromExcel(buffer);
+            if (excelResult.success && excelResult.imported > 0) {
+                return excelResult;
+            }
+            // Excel AI fallback is limited since we can't easily get text from binary
+            return excelResult;
+        } 
+        
+        // For CSV and text files, read as text
         const content = await file.text();
-        return importFromCSV(content);
-    } else if (extension === 'xlsx' || extension === 'xls') {
-        const buffer = await file.arrayBuffer();
-        return importFromExcel(buffer);
-    } else if (extension === 'txt' || extension === 'text') {
-        const content = await file.text();
-        return importFromText(content);
-    } else if (extension === 'docx') {
-        // For DOCX files, we'll need to extract text first
-        // For now, return an error suggesting conversion to txt
+        
+        if (extension === 'csv') {
+            const csvResult = importFromCSV(content);
+            if (csvResult.success && csvResult.imported > 0) {
+                return csvResult;
+            }
+            // Try AI fallback for unrecognized formats
+            const aiResult = await smartImportWords(content, file.name, 'csv');
+            if (aiResult.words.length > 0) {
+                return convertToImportResult(aiResult);
+            }
+            return csvResult;
+        } else if (extension === 'txt' || extension === 'text') {
+            const txtResult = importFromText(content);
+            if (txtResult.success && txtResult.imported > 0) {
+                return txtResult;
+            }
+            // Try AI fallback
+            const aiResult = await smartImportWords(content, file.name, 'text');
+            if (aiResult.words.length > 0) {
+                return convertToImportResult(aiResult);
+            }
+            return txtResult;
+        } else if (extension === 'docx') {
+            return {
+                success: false,
+                words: [],
+                errors: ['DOCX files not directly supported. Please save as TXT or CSV format, or copy-paste the content.'],
+                imported: 0,
+                skipped: 0,
+            };
+        } else {
+            return {
+                success: false,
+                words: [],
+                errors: ['Unsupported file format. Please use CSV, Excel (.xlsx, .xls), or text (.txt) files.'],
+                imported: 0,
+                skipped: 0,
+            };
+        }
+    } catch (error: any) {
         return {
             success: false,
             words: [],
-            errors: ['DOCX files not directly supported. Please save as TXT or CSV format, or copy-paste the content.'],
-            imported: 0,
-            skipped: 0,
-        };
-    } else {
-        return {
-            success: false,
-            words: [],
-            errors: ['Unsupported file format. Please use CSV, Excel (.xlsx, .xls), or text (.txt) files.'],
+            errors: [`Import failed: ${error.message}`],
             imported: 0,
             skipped: 0,
         };
     }
+}
+
+/**
+ * Convert AI import result to ImportResult format
+ */
+function convertToImportResult(aiResult: { words: Array<{term: string, translation: string, category?: string}>, errors: string[], detectedFormat?: string }): ImportResult {
+    const result: ImportResult = {
+        success: false,
+        words: [],
+        errors: [],
+        imported: 0,
+        skipped: 0,
+        detectedFormat: aiResult.detectedFormat,
+        aiPowered: true,
+    };
+
+    if (aiResult.errors.length > 0) {
+        result.errors = aiResult.errors;
+        return result;
+    }
+
+    for (const item of aiResult.words) {
+        if (!item.term || !item.translation) {
+            result.skipped++;
+            continue;
+        }
+
+        const word: Word = {
+            id: uuidv4(),
+            term: item.term,
+            translation: item.translation,
+            category: item.category || 'Other',
+            type: 'word',
+            masteryLevel: 0,
+            lastReviewed: 0,
+            timesCorrect: 0,
+            isMastered: false,
+            association: '',
+            createdAt: Date.now(),
+        };
+
+        result.words.push(word);
+        result.imported++;
+    }
+
+    result.success = result.imported > 0;
+    if (!result.success) {
+        result.errors.push('No valid words found after AI parsing.');
+    }
+    return result;
 }
 
 /**

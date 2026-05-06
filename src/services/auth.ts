@@ -173,6 +173,119 @@ export async function loginWithGoogle(): Promise<void> {
     await signInWithGoogle();
 }
 
+export async function updateLinkedEmail(newEmail: string): Promise<void> {
+    if (!isSupabaseConfigured()) {
+        throw new Error('Cloud sync is not configured.');
+    }
+
+    if (!isValidEmail(newEmail)) {
+        throw new Error('Please enter a valid email address.');
+    }
+
+    const supabase = getSupabase();
+    if (!supabase) {
+        throw new Error('Supabase client is not available.');
+    }
+
+    const session = await getCurrentSession();
+    if (!session) {
+        throw new Error('You need to be logged in to cloud account.');
+    }
+
+    const { error } = await supabase.auth.updateUser({ email: newEmail.trim() });
+    if (error) {
+        throw error;
+    }
+}
+
+type LinkEmailResult = {
+    status: 'linked_and_logged_in' | 'verification_required';
+    userId: string;
+    email: string;
+};
+
+function isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
+// Link existing local account to Supabase email/password auth
+export async function linkCurrentLocalAccountWithEmail(email: string, password: string): Promise<LinkEmailResult> {
+    if (!isSupabaseConfigured()) {
+        throw new Error('Cloud sync is not configured.');
+    }
+
+    if (!isValidEmail(email)) {
+        throw new Error('Please enter a valid email address.');
+    }
+
+    if (!password || password.length < 6) {
+        throw new Error('Password must be at least 6 characters.');
+    }
+
+    const currentUserId = localStorage.getItem('currentUserId');
+    if (!currentUserId) {
+        throw new Error('No local user is currently logged in.');
+    }
+
+    const localUser = await getCurrentUser();
+    if (!localUser) {
+        throw new Error('Could not load current local user.');
+    }
+
+    let linkedUserId: string | null = null;
+    let hasSession = false;
+
+    try {
+        const signUpResult = await signUp(email.trim(), password);
+        linkedUserId = signUpResult?.data?.user?.id || null;
+        hasSession = !!signUpResult?.data?.session;
+    } catch (err: any) {
+        const message = (err?.message || '').toLowerCase();
+        if (message.includes('already registered') || message.includes('already exists')) {
+            const loginResult = await signInWithPassword(email.trim(), password);
+            linkedUserId = loginResult?.data?.user?.id || null;
+            hasSession = !!loginResult?.data?.session;
+        } else {
+            throw err;
+        }
+    }
+
+    if (!linkedUserId) {
+        throw new Error('Failed to create or link cloud account.');
+    }
+
+    // If we have a session, we can map local ID to Supabase user ID immediately.
+    if (hasSession) {
+        localStorage.setItem('currentUserId', linkedUserId);
+    }
+
+    // Best effort: persist profile in cloud. If not authed yet (email verification), this will be ignored by RLS.
+    try {
+        const supabase = getSupabase();
+        if (supabase) {
+            await supabase
+                .from('user_settings')
+                .upsert({
+                    user_id: linkedUserId,
+                    profile: localUser.profile,
+                    theme: 'system',
+                    notifications_enabled: false,
+                    notification_time: '08:00',
+                    daily_goal: 5,
+                    auto_read_flashcards: false
+                }, { onConflict: 'user_id' });
+        }
+    } catch (profileErr) {
+        console.warn('Could not save profile during account linking:', profileErr);
+    }
+
+    return {
+        status: hasSession ? 'linked_and_logged_in' : 'verification_required',
+        userId: linkedUserId,
+        email: email.trim()
+    };
+}
+
 // Create new user - supports both Supabase and local auth
 export async function createUser(
     username: string,

@@ -23,7 +23,7 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
-import { getCurrentUser } from './services/auth';
+import { getCurrentUser, isUsingSupabaseAuth } from './services/auth';
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -50,6 +50,21 @@ function App() {
           // No user logged in - need to login
           setNeedsAuth(true);
         } else {
+          // If user just verified cloud email and has a pending sync flag, auto-sync once.
+          const pendingSync = localStorage.getItem('pendingCloudSyncAfterVerification') === 'true';
+          if (pendingSync) {
+            try {
+              const usingSupabase = await isUsingSupabaseAuth();
+              if (usingSupabase) {
+                await db.syncToSupabase();
+                localStorage.removeItem('pendingCloudSyncAfterVerification');
+                console.log('Auto-sync after email verification completed');
+              }
+            } catch (syncError) {
+              console.warn('Auto-sync after verification failed:', syncError);
+            }
+          }
+
           // User logged in - check if they have profile
           const settings = await db.getSettings();
           if (!settings?.profile?.name) {
