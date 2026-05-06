@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../services/db';
 import { ArrowRight, Check, Lock, User, Mail } from 'lucide-react';
 import type { UserSettings } from '../types';
-import { createUser, getAllUsers } from '../services/auth';
+import { createUser, getAllUsers, getCurrentUser, isUsingCloudAuth } from '../services/auth';
+import * as supabaseService from '../services/supabase';
 
 const OnboardingPage: React.FC = () => {
     const [step, setStep] = useState(1);
@@ -16,6 +17,22 @@ const OnboardingPage: React.FC = () => {
     const [nativeLang, setNativeLang] = useState('Ukrainian');
     const [targetLang, setTargetLang] = useState('English');
     const [level, setLevel] = useState<'beginner' | 'intermediate' | 'advanced'>('beginner');
+    const [isExistingUser, setIsExistingUser] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    React.useEffect(() => {
+        const checkAuth = async () => {
+            const user = await getCurrentUser();
+            if (user) {
+                setIsExistingUser(true);
+                setName(user.profile?.name || '');
+                // Skip account creation step
+                setStep(2);
+            }
+            setIsLoading(false);
+        };
+        checkAuth();
+    }, []);
 
     const handleNextFromUsername = async () => {
         setError('');
@@ -64,35 +81,71 @@ const OnboardingPage: React.FC = () => {
 
     const handleComplete = async () => {
         try {
-            // Create user account - pass email for PocketBase signup
-            await createUser(username, password, {
-                name,
-                nativeLanguage: nativeLang,
-                targetLanguage: targetLang,
-                level
-            }, email); // Pass email for PocketBase auth
+            if (isExistingUser) {
+                // Just update existing profile
+                const currentSettings = await db.getSettings();
+                const user = await getCurrentUser();
+                
+                const newSettings: UserSettings = {
+                    ...(currentSettings || { theme: 'dark', dailyGoal: 5, progress: { currentStreak: 0, lastStudyDate: '', studyHistory: [] } }),
+                    profile: {
+                        name,
+                        nativeLanguage: nativeLang,
+                        targetLanguage: targetLang,
+                        level
+                    }
+                } as UserSettings;
 
-            // Save settings (optional, for backward compatibility)
-            const currentSettings = await db.getSettings();
-            const newSettings: UserSettings = {
-                ...(currentSettings || { theme: 'dark', dailyGoal: 5, progress: { currentStreak: 0, lastStudyDate: '', studyHistory: [] } }),
-                profile: {
+                await db.saveSettings(newSettings);
+                
+                // If cloud auth is active, update Supabase profile too
+                if (user && await isUsingCloudAuth()) {
+                    await supabaseService.updateProfile(user.id, {
+                        display_name: name,
+                        native_language: nativeLang,
+                        target_language: targetLang,
+                        learning_level: level
+                    });
+                }
+            } else {
+                // Create new user account
+                await createUser(username, password, {
                     name,
                     nativeLanguage: nativeLang,
                     targetLanguage: targetLang,
                     level
-                }
-            } as UserSettings;
+                }, email);
 
-            await db.saveSettings(newSettings);
+                // Save settings
+                const currentSettings = await db.getSettings();
+                const newSettings: UserSettings = {
+                    ...(currentSettings || { theme: 'dark', dailyGoal: 5, progress: { currentStreak: 0, lastStudyDate: '', studyHistory: [] } }),
+                    profile: {
+                        name,
+                        nativeLanguage: nativeLang,
+                        targetLanguage: targetLang,
+                        level
+                    }
+                } as UserSettings;
+
+                await db.saveSettings(newSettings);
+            }
 
             // Force a full reload to check auth status
             window.location.href = '/';
         } catch (error: any) {
-            setError(error.message || 'Failed to create account');
+            setError(error.message || 'Failed to save profile');
             console.error('Failed to save profile:', error);
         }
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center">
+                <div className="animate-spin w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[var(--color-bg)] flex items-center justify-center p-6">

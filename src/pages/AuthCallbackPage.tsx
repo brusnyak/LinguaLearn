@@ -14,57 +14,80 @@ const AuthCallbackPage: React.FC = () => {
     };
 
     useEffect(() => {
+        let isMounted = true;
+        
         const handleAuthCallback = async () => {
             try {
                 addLog('Starting auth callback...');
-                
                 addLog(`URL: ${window.location.href}`);
                 
                 if (!supabaseService.isSupabaseConfigured()) {
                     throw new Error('Supabase not configured');
                 }
 
+                const client = supabaseService.getSupabase();
+                if (!client) throw new Error('Supabase client failed to initialize');
+
                 addLog('Checking for established session...');
                 
-                // Supabase's detectSessionInUrl should have picked up the hash by now,
-                // but we wait a bit to be sure or explicitly get session.
-                let session = await supabaseService.getCurrentSession();
+                // Try immediate session
+                const { data: { session: immediateSession } } = await client.auth.getSession();
                 
-                if (!session) {
-                    addLog('Session not immediately available, waiting...');
-                    // Try one more time after a short delay
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                    session = await supabaseService.getCurrentSession();
+                if (immediateSession?.user) {
+                    await processSession(immediateSession);
+                    return;
                 }
 
-                if (session?.user) {
-                    addLog(`✅ Logged in: ${session.user.email}`);
-                    
-                    try {
-                        addLog('Syncing local data to cloud...');
-                        // Update localStorage so sync works with correct ID
-                        localStorage.setItem('currentUserId', session.user.id);
-                        await db.syncToCloud();
-                        addLog('✅ Local data synced to cloud');
-                    } catch (syncErr: any) {
-                        addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
+                addLog('Session not immediately available, listening for auth state change...');
+
+                // Set a timeout to bail out if no session is detected
+                const timeoutId = setTimeout(() => {
+                    if (isMounted) {
+                        addLog('❌ Timeout: No session detected after 10s');
+                        setError('No session found. Please try logging in again.');
                     }
-                    
-                    addLog('Redirecting to home in 1s...');
-                    setTimeout(() => navigate('/'), 1000);
-                } else {
-                    addLog('❌ No session found in URL hash/fragment');
-                    addLog('Check if Google OAuth is enabled in Supabase dashboard');
-                    setTimeout(() => {
-                        addLog('Redirecting to login...');
-                        navigate('/login');
-                    }, 5000);
-                }
+                }, 10000);
+
+                const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+                    addLog(`Auth event: ${event}`);
+                    if (session?.user && isMounted) {
+                        clearTimeout(timeoutId);
+                        subscription.unsubscribe();
+                        await processSession(session);
+                    }
+                });
+
+                return () => {
+                    isMounted = false;
+                    subscription.unsubscribe();
+                    clearTimeout(timeoutId);
+                };
             } catch (err: any) {
                 console.error('Auth callback error:', err);
                 addLog(`❌ Error: ${err.message}`);
-                setError(err.message || 'Authentication failed');
+                if (isMounted) setError(err.message || 'Authentication failed');
             }
+        };
+
+        const processSession = async (session: any) => {
+            if (!isMounted) return;
+            addLog(`✅ Logged in: ${session.user.email}`);
+            
+            try {
+                addLog('Syncing local data to cloud...');
+                // Note: db.syncToCloud will handle updating the local user ID 
+                // and migrating data from the old local ID to the new cloud ID.
+                await db.syncToCloud();
+                addLog('✅ Local data synced to cloud');
+            } catch (syncErr: any) {
+                addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
+                // Even if sync fails, we have the session, so we can proceed
+            }
+            
+            addLog('Redirecting to home in 1s...');
+            setTimeout(() => {
+                if (isMounted) navigate('/');
+            }, 1000);
         };
 
         handleAuthCallback();
