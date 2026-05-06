@@ -30,7 +30,9 @@ const AuthCallbackPage: React.FC = () => {
 
                 // Check for error in URL
                 const params = new URLSearchParams(window.location.search);
-                const error = params.get('error_description') || params.get('error');
+                const hashParams = new URLSearchParams(window.location.hash.substring(1)); // Remove '#'
+                
+                const error = params.get('error_description') || params.get('error') || hashParams.get('error_description') || hashParams.get('error');
                 if (error) {
                     throw new Error(error);
                 }
@@ -50,8 +52,26 @@ const AuthCallbackPage: React.FC = () => {
                 if (code) {
                     addLog('Found code in URL, exchanging for session...');
                     const { data, error: exchangeError } = await client.auth.exchangeCodeForSession(code);
-                    if (exchangeError) throw exchangeError;
-                    if (data.session) {
+                    if (exchangeError) {
+                        addLog(`⚠️ Exchange error: ${exchangeError.message}`);
+                    } else if (data.session) {
+                        await processSession(data.session);
+                        return;
+                    }
+                }
+
+                // If still no session, check for 'access_token' in hash (Implicit Flow Fallback)
+                const accessToken = hashParams.get('access_token');
+                const refreshToken = hashParams.get('refresh_token');
+                if (accessToken) {
+                    addLog('Found access_token in hash, setting session manually...');
+                    const { data, error: setError } = await client.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken || ''
+                    });
+                    if (setError) {
+                        addLog(`⚠️ SetSession error: ${setError.message}`);
+                    } else if (data.session) {
                         await processSession(data.session);
                         return;
                     }
@@ -62,10 +82,10 @@ const AuthCallbackPage: React.FC = () => {
                 // Set a timeout to bail out if no session is detected
                 const timeoutId = setTimeout(() => {
                     if (isMounted) {
-                        addLog('❌ Timeout: No session detected after 15s');
-                        setError('No session found. Please try logging in again. Ensure Google Auth is enabled in Supabase.');
+                        addLog('❌ Timeout: No session detected after 20s');
+                        setError('No session found. Please try logging in again. Ensure Google Auth is enabled in Supabase and the Redirect URL is exactly: ' + window.location.origin + '/auth/callback');
                     }
-                }, 15000);
+                }, 20000);
 
                 const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
                     addLog(`Auth event: ${event}`);
