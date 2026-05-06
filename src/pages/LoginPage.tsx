@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, getAllUsers, loginWithGoogle } from '../services/auth';
-import { isSupabaseConfigured } from '../services/supabase';
-import { LogIn, UserPlus, Chrome } from 'lucide-react';
+import { loginUser, getAllUsers } from '../services/auth';
+import { isPBConfigured } from '../services/pocketbase';
+import { LogIn, UserPlus } from 'lucide-react';
 
 const LoginPage: React.FC = () => {
     const navigate = useNavigate();
@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [existingUsers, setExistingUsers] = useState<string[]>([]);
-    const [isSupabaseEnabled, setIsSupabaseEnabled] = useState(false);
+    const [isPBEnabled, setIsPBEnabled] = useState(false);
 
     useEffect(() => {
         loadExistingUsers();
@@ -20,8 +20,8 @@ const LoginPage: React.FC = () => {
         if (lastUsername) {
             setUsername(lastUsername);
         }
-        // Check if Supabase is configured
-        setIsSupabaseEnabled(isSupabaseConfigured());
+        // Check if PocketBase is configured
+        setIsPBEnabled(isPBConfigured());
     }, []);
 
     const loadExistingUsers = async () => {
@@ -65,17 +65,6 @@ const LoginPage: React.FC = () => {
 
     const handleCreateAccount = () => {
         navigate('/onboarding');
-    };
-
-    const handleGoogleLogin = async () => {
-        try {
-            setLoading(true);
-            await loginWithGoogle();
-            // Will redirect to Google, no need to handle further
-        } catch (err: any) {
-            setError(err.message || 'Google login failed');
-            setLoading(false);
-        }
     };
 
     return (
@@ -122,7 +111,7 @@ const LoginPage: React.FC = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full px-4 py-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent outline-none transition-all"
-                            placeholder="Enter your password"
+                            placeholder="Enter password"
                             autoComplete="current-password"
                             disabled={loading}
                         />
@@ -139,36 +128,35 @@ const LoginPage: React.FC = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-[var(--color-primary)] text-white py-3 rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                         <LogIn size={20} />
                         {loading ? 'Signing in...' : 'Sign In'}
                     </button>
-
-                    {/* Google Login Button */}
-                    {isSupabaseEnabled && (
-                        <button
-                            type="button"
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
-                            className="w-full bg-white text-gray-900 border-2 border-gray-300 py-3 rounded-lg font-bold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            <Chrome size={20} />
-                            Sign in with Google
-                        </button>
-                    )}
                 </form>
+
+                {/* Divider */}
+                <div className="relative flex items-center mt-6 mb-4">
+                    <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                    <span className="flex-shrink mx-4 text-gray-400 text-sm">OR</span>
+                    <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
 
                 {/* Create Account Button */}
                 <button
                     type="button"
                     onClick={handleCreateAccount}
-                    disabled={loading}
-                    className="w-full mt-4 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] py-3 rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full px-6 py-3 border-2 border-[var(--color-primary)] text-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2"
                 >
                     <UserPlus size={20} />
-                    Create New Account
+                    Create New Account (with Cloud Sync)
                 </button>
+
+                {isPBEnabled && (
+                    <p className="text-center text-xs text-[var(--color-text-muted)] mt-4">
+                        ✓ PocketBase cloud sync enabled
+                    </p>
+                )}
             </div>
         </div>
     );

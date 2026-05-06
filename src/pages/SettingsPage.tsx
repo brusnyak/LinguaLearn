@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, Info, User, Save, Bell, LogOut, Download, Upload, Database, Chrome } from 'lucide-react';
+import { Trash2, Info, User, Save, Bell, LogOut, Download, Upload, Database } from 'lucide-react';
 import AppearanceSettings from '../components/AppearanceSettings';
 import { db, initDB } from '../services/db';
 import type { UserSettings } from '../types';
 import { useToast } from '../context/ToastContext';
-import { getCurrentUser, logoutUser, loginWithGoogle, isUsingSupabaseAuth, linkCurrentLocalAccountWithEmail, updateLinkedEmail } from '../services/auth';
-import { isSupabaseConfigured } from '../services/supabase';
+import { getCurrentUser, logoutUser, isUsingPBAuth, linkCurrentLocalAccountWithEmail, updateLinkedEmail } from '../services/auth';
+import { isPBConfigured } from '../services/pocketbase';
 
 const SettingsPage: React.FC = () => {
     const { showToast } = useToast();
@@ -23,7 +23,7 @@ const SettingsPage: React.FC = () => {
     const [isExporting, setIsExporting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
-    const [isUsingSupabase, setIsUsingSupabase] = useState(false);
+    const [isUsingPB, setIsUsingPB] = useState(false);
     const [linkEmail, setLinkEmail] = useState('');
     const [linkPassword, setLinkPassword] = useState('');
     const [isLinkingEmail, setIsLinkingEmail] = useState(false);
@@ -33,15 +33,15 @@ const SettingsPage: React.FC = () => {
     useEffect(() => {
         loadSettings();
         loadCurrentUser();
-        checkSupabaseAuth();
+        checkPBAuth();
         if ('Notification' in window) {
             setNotificationPermission(Notification.permission);
         }
     }, []);
 
-    const checkSupabaseAuth = async () => {
-        const isAuth = await isUsingSupabaseAuth();
-        setIsUsingSupabase(isAuth);
+    const checkPBAuth = async () => {
+        const isAuth = await isUsingPBAuth();
+        setIsUsingPB(isAuth);
     };
 
     const loadCurrentUser = async () => {
@@ -174,28 +174,28 @@ const SettingsPage: React.FC = () => {
         input.click();
     };
 
-    const handleSyncToSupabase = async () => {
+    const handleSyncToPocketBase = async () => {
         setIsSyncing(true);
         try {
-            await db.syncToSupabase();
+            await db.syncToPocketBase();
             showToast('Data synced to cloud! Your local data is now linked to your cloud account.', 'success');
             // Refresh auth status
-            await checkSupabaseAuth();
+            await checkPBAuth();
         } catch (error: any) {
-            showToast(error.message || 'Sync failed. Check Supabase config.', 'error');
+            showToast(error.message || 'Sync failed. Check PocketBase config.', 'error');
         } finally {
             setIsSyncing(false);
         }
     };
 
-    const handleSyncFromSupabase = async () => {
+    const handleSyncFromPocketBase = async () => {
         setIsSyncing(true);
         try {
-            await db.syncFromSupabase();
+            await db.syncFromPocketBase();
             showToast('Data synced from cloud! Reloading...', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } catch (error: any) {
-            showToast(error.message || 'Sync failed. Check Supabase config.', 'error');
+            showToast(error.message || 'Sync failed. Check PocketBase config.', 'error');
         } finally {
             setIsSyncing(false);
         }
@@ -226,13 +226,7 @@ const SettingsPage: React.FC = () => {
         }
     };
 
-    const handleGoogleLogin = async () => {
-        try {
-            await loginWithGoogle();
-        } catch (error: any) {
-            showToast(error.message || 'Google login failed', 'error');
-        }
-    };
+
 
     const handleLinkEmailAccount = async () => {
         setIsLinkingEmail(true);
@@ -245,10 +239,10 @@ const SettingsPage: React.FC = () => {
                 return;
             }
 
-            await db.syncToSupabase();
+            await db.syncToPocketBase();
             setLinkEmail('');
             setLinkPassword('');
-            await checkSupabaseAuth();
+            await checkPBAuth();
             await loadCurrentUser();
             showToast('Cloud account linked and local data synced.', 'success');
         } catch (error: any) {
@@ -289,15 +283,7 @@ const SettingsPage: React.FC = () => {
                         <div className="text-lg font-medium">{currentUsername || 'Not logged in'}</div>
                     </div>
 
-            {isSupabaseConfigured() && !isUsingSupabase && (
-                        <button
-                            onClick={handleGoogleLogin}
-                            className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Chrome size={20} />
-                            Login with Google
-                        </button>
-                    )}
+            
 
                     <button
                         onClick={handleLogout}
@@ -480,37 +466,37 @@ const SettingsPage: React.FC = () => {
             <AppearanceSettings />
 
              {/* Cloud Sync Section */}
-            {isSupabaseConfigured() && (
-                <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
-                    <div className="flex items-center gap-2 text-[var(--color-primary)]">
-                        <Database size={24} />
-                        <h3 className="text-lg font-bold">Cloud Sync</h3>
-                    </div>
+             {isPBConfigured() && (
+                 <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
+                     <div className="flex items-center gap-2 text-[var(--color-primary)]">
+                         <Database size={24} />
+                         <h3 className="text-lg font-bold">Cloud Sync</h3>
+                     </div>
 
-                    {isUsingSupabase ? (
-                        <>
-                            <p className="text-sm text-green-600 dark:text-green-400">
-                                ✓ Connected to cloud
-                            </p>
-                            <p className="text-sm text-[var(--color-text-muted)]">
-                                Sync your data across devices. Your local data will be linked to your cloud account.
-                            </p>
-                            <div className="flex flex-col sm:flex-row gap-3">
-                                <button
-                                    onClick={handleSyncToSupabase}
-                                    disabled={isSyncing}
-                                    className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    <Upload size={18} /> {isSyncing ? 'Syncing...' : 'Sync to Cloud'}
-                                </button>
-                                <button
-                                    onClick={handleSyncFromSupabase}
-                                    disabled={isSyncing}
-                                    className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                                >
-                                    <Download size={18} /> {isSyncing ? 'Syncing...' : 'Sync from Cloud'}
-                                </button>
-                            </div>
+                     {isUsingPB ? (
+                         <>
+                             <p className="text-sm text-green-600 dark:text-green-400">
+                                 ✓ Connected to cloud
+                             </p>
+                             <p className="text-sm text-[var(--color-text-muted)]">
+                                 Sync your data across devices. Your local data will be linked to your cloud account.
+                             </p>
+                             <div className="flex flex-col sm:flex-row gap-3">
+                                  <button
+                                     onClick={handleSyncToPocketBase}
+                                     disabled={isSyncing}
+                                     className="flex-1 px-6 py-3 bg-[var(--color-primary)] text-white rounded-lg font-bold hover:bg-[var(--color-primary-dark)] transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                 >
+                                     <Upload size={18} /> {isSyncing ? 'Syncing...' : 'Sync to Cloud'}
+                                 </button>
+                                 <button
+                                     onClick={handleSyncFromPocketBase}
+                                     disabled={isSyncing}
+                                     className="flex-1 px-6 py-3 bg-[var(--color-bg)] text-[var(--color-text)] border-2 border-[var(--color-primary)] rounded-lg font-bold hover:bg-[var(--color-primary)] hover:text-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                 >
+                                     <Download size={18} /> {isSyncing ? 'Syncing...' : 'Sync from Cloud'}
+                                 </button>
+                             </div>
                             <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
                                 <p className="text-sm font-medium">Change linked email</p>
                                 <input
@@ -537,19 +523,12 @@ const SettingsPage: React.FC = () => {
                                         You're logged in as <span className="font-medium">{currentUsername}</span> (local account). Link to a cloud account to sync across devices.
                                     </>
                                 ) : (
-                                    'Login with Google or email to enable cloud sync across devices.'
+                                    'Create a cloud account with email to enable sync across devices.'
                                 )}
                             </p>
                             <div className="flex flex-col gap-3">
-                                <button
-                                    onClick={handleGoogleLogin}
-                                    className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Chrome size={20} />
-                                    Login with Google
-                                </button>
                                 <div className="rounded-lg border border-[var(--color-border)] p-4 space-y-3">
-                                    <p className="text-sm font-medium">Or link with email/password</p>
+                                    <p className="text-sm font-medium">Link with email/password</p>
                                     <input
                                         type="email"
                                         value={linkEmail}
@@ -627,7 +606,7 @@ const SettingsPage: React.FC = () => {
                         <li>Spaced Repetition Flashcards</li>
                         <li>Offline Support</li>
                         <li>Dark/Light Theme (Purple & Orange)</li>
-                        {isSupabaseConfigured() && <li>Cloud Sync with Supabase</li>}
+                        {isPBConfigured() && <li>Cloud Sync with PocketBase</li>}
                     </ul>
                 </div>
             </div>

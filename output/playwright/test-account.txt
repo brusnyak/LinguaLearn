@@ -1,0 +1,3 @@
+USER=legacytester113304 EMAIL=legacy.1778059984@example.com
+LINK_EMAIL=link.1778060051@example.com
+REAL_LINK_EMAIL=lingulearn1778060087@mailinator.com

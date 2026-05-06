@@ -1,0 +1,61 @@
+[
+  {
+    "name": "words",
+    "type": "base",
+    "schema": [
+      {"name": "user_id", "type": "text", "required": true, "options": {"min": 1}},
+      {"name": "term", "type": "text", "required": true, "options": {"min": 1}},
+      {"name": "translation", "type": "text", "required": true, "options": {"min": 1}},
+      {"name": "phonetic", "type": "text", "required": false, "options": {}},
+      {"name": "category", "type": "text", "required": false, "options": {}},
+      {"name": "type", "type": "text", "required": false, "options": {}},
+      {"name": "mastery_level", "type": "number", "required": false, "options": {"min": 0, "max": 5}},
+      {"name": "last_reviewed", "type": "number", "required": false, "options": {}},
+      {"name": "times_correct", "type": "number", "required": false, "options": {}},
+      {"name": "is_mastered", "type": "bool", "required": false, "options": {}},
+      {"name": "association", "type": "text", "required": false, "options": {}},
+      {"name": "created_at", "type": "number", "required": false, "options": {}}
+    ],
+    "listRule": "user_id = @request.auth.id",
+    "viewRule": "user_id = @request.auth.id",
+    "createRule": "user_id = @request.auth.id",
+    "updateRule": "user_id = @request.auth.id",
+    "deleteRule": "user_id = @request.auth.id"
+  },
+  {
+    "name": "user_settings",
+    "type": "base",
+    "schema": [
+      {"name": "user_id", "type": "text", "required": true, "options": {"min": 1}},
+      {"name": "profile", "type": "json", "required": false, "options": {}},
+      {"name": "theme", "type": "text", "required": false, "options": {}},
+      {"name": "notifications_enabled", "type": "bool", "required": false, "options": {}},
+      {"name": "notification_time", "type": "text", "required": false, "options": {}},
+      {"name": "daily_goal", "type": "number", "required": false, "options": {}},
+      {"name": "auto_read_flashcards", "type": "bool", "required": false, "options": {}}
+    ],
+    "listRule": "user_id = @request.auth.id",
+    "viewRule": "user_id = @request.auth.id",
+    "createRule": "user_id = @request.auth.id",
+    "updateRule": "user_id = @request.auth.id",
+    "deleteRule": "user_id = @request.auth.id"
+  },
+  {
+    "name": "user_progress",
+    "type": "base",
+    "schema": [
+      {"name": "user_id", "type": "text", "required": true, "options": {"min": 1}},
+      {"name": "current_streak", "type": "number", "required": false, "options": {}},
+      {"name": "last_study_date", "type": "text", "required": false, "options": {}},
+      {"name": "study_history", "type": "json", "required": false, "options": {}},
+      {"name": "xp", "type": "number", "required": false, "options": {}},
+      {"name": "level", "type": "number", "required": false, "options": {}},
+      {"name": "completed_dungeon_levels", "type": "json", "required": false, "options": {}}
+    ],
+    "listRule": "user_id = @request.auth.id",
+    "viewRule": "user_id = @request.auth.id",
+    "createRule": "user_id = @request.auth.id",
+    "updateRule": "user_id = @request.auth.id",
+    "deleteRule": "user_id = @request.auth.id"
+  }
+]

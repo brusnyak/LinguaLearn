@@ -64,13 +64,13 @@ const OnboardingPage: React.FC = () => {
 
     const handleComplete = async () => {
         try {
-            // Create user account - pass email for Supabase signup
+            // Create user account - pass email for PocketBase signup
             await createUser(username, password, {
                 name,
                 nativeLanguage: nativeLang,
                 targetLanguage: targetLang,
                 level
-            }, email); // Pass email for Supabase auth
+            }, email); // Pass email for PocketBase auth
 
             // Save settings (optional, for backward compatibility)
             const currentSettings = await db.getSettings();

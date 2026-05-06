@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Book, Gamepad2, Settings, Home, ChevronLeft, ChevronRight, LogOut, CheckCircle } from 'lucide-react';
 import { useDevice } from '../hooks/useDevice';
-import { getCurrentUser, isUsingSupabaseAuth, logoutUser } from '../services/auth';
-import { isSupabaseConfigured } from '../services/supabase';
+import { getCurrentUser, isUsingPBAuth, logoutUser } from '../services/auth';
+import { isPBConfigured } from '../services/pocketbase';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -16,15 +16,15 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [user, setUser] = useState<any>(null);
-    const [isSupabase, setIsSupabase] = useState(false);
+    const [isPBAuth, setIsPBAuth] = useState(false);
 
     useEffect(() => {
         const loadUser = async () => {
             const u = await getCurrentUser();
             setUser(u);
-            if (isSupabaseConfigured()) {
-                const isAuth = await isUsingSupabaseAuth();
-                setIsSupabase(isAuth);
+            if (isPBConfigured()) {
+                const isAuth = await isUsingPBAuth();
+                setIsPBAuth(isAuth);
             }
         };
         loadUser();
@@ -120,7 +120,7 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
                                 {!isSidebarCollapsed && (
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-medium truncate">{user.profile?.name || user.username}</p>
-                                        {isSupabase && (
+                                        {isPBAuth && (
                                             <p className="text-xs text-green-500 flex items-center gap-1">
                                                 <CheckCircle size={12} /> Cloud synced
                                             </p>

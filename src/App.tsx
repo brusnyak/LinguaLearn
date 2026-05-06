@@ -20,10 +20,11 @@ import RealWorldPracticePage from './pages/RealWorldPracticePage';
 import ListeningChallengePage from './pages/ListeningChallengePage';
 import StatisticsPage from './pages/StatisticsPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
+import StatusTestPage from './pages/StatusTestPage';
 import { db } from './services/db';
 import { INITIAL_WORDS } from './data/seed';
 import { ToastProvider } from './context/ToastContext';
-import { getCurrentUser, isUsingSupabaseAuth } from './services/auth';
+import { getCurrentUser, isUsingPBAuth } from './services/auth';
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -54,9 +55,9 @@ function App() {
           const pendingSync = localStorage.getItem('pendingCloudSyncAfterVerification') === 'true';
           if (pendingSync) {
             try {
-              const usingSupabase = await isUsingSupabaseAuth();
-              if (usingSupabase) {
-                await db.syncToSupabase();
+              const usingPB = await isUsingPBAuth();
+              if (usingPB) {
+                await db.syncToPocketBase();
                 localStorage.removeItem('pendingCloudSyncAfterVerification');
                 console.log('Auto-sync after email verification completed');
               }
@@ -114,7 +115,8 @@ function App() {
               <Route path="/mastered" element={<Layout><MasteredWordsPage /></Layout>} />
               <Route path="/reading" element={<Layout><ReadingPracticePage /></Layout>} />
               <Route path="/reading/:storyId" element={<Layout><StoryReaderPage /></Layout>} />
-              <Route path="/statistics" element={<Layout><StatisticsPage /></Layout>} />
+               <Route path="/statistics" element={<Layout><StatisticsPage /></Layout>} />
+               <Route path="/status-test" element={<Layout><StatusTestPage /></Layout>} />
 
               {/* Game routes with fullscreen layout (no header/footer) */}
               <Route path="/games/dungeon" element={<Layout fullscreen><VocabDungeonPage /></Layout>} />

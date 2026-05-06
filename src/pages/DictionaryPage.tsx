@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../services/db';
-import { importFromFile, createCSVTemplate, createTextTemplate, type ImportResult } from '../services/import';
+import { smartImportFromFile, createTemplate, type ImportResult } from '../services/smartImport';
 import { translateWordsToUkrainian } from '../services/openrouter';
 import type { Word } from '../types';
 import { Search, Plus, Volume2, Upload, X, Check, Filter } from 'lucide-react';
@@ -18,7 +18,7 @@ const DictionaryPage: React.FC = () => {
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState<ImportResult | null>(null);
     const [showImportModal, setShowImportModal] = useState(false);
-    const [templateFormat, setTemplateFormat] = useState<'csv' | 'text'>('csv');
+    const [templateFormat, setTemplateFormat] = useState<'csv' | 'json' | 'txt'>('csv');
     const [translatingImport, setTranslatingImport] = useState(false);
 
     useEffect(() => {
@@ -37,13 +37,14 @@ const DictionaryPage: React.FC = () => {
         setShowImportModal(true);
 
         try {
-            const result = await importFromFile(file);
+            const result = await smartImportFromFile(file);
             setImportResult(result);
         } catch (error: any) {
             setImportResult({
                 success: false,
                 words: [],
                 errors: [error.message],
+                warnings: [],
                 imported: 0,
                 skipped: 0,
             });
@@ -114,10 +115,11 @@ const DictionaryPage: React.FC = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const template = templateFormat === 'csv' ? createCSVTemplate() : createTextTemplate();
-        const mimeType = templateFormat === 'csv' ? 'text/csv' : 'text/plain';
-        const filename = templateFormat === 'csv' ? 'word-template.csv' : 'word-template.txt';
-
+        const template = createTemplate(templateFormat);
+        const mimeType = templateFormat === 'json' ? 'application/json' : 
+                        templateFormat === 'csv' ? 'text/csv' : 'text/plain';
+        const filename = `word-template.${templateFormat}`;
+        
         const blob = new Blob([template], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -181,13 +183,13 @@ const DictionaryPage: React.FC = () => {
                 </div>
             </div>
 
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls,.txt,.text"
-                onChange={handleFileChange}
-                className="hidden"
-            />
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.txt,.text,.json,.xml,.html,.md,.markdown,.tsv"
+                    onChange={handleFileChange}
+                    className="hidden"
+                />
 
             {/* Search and Filter */}
             <div className="space-y-3">
@@ -298,53 +300,67 @@ const DictionaryPage: React.FC = () => {
                             </div>
                         ) : importResult ? (
                             <div className="space-y-4">
-                                {importResult.success ? (
-                                    <>
-                                        <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-lg">
-                                            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                                                <Check size={20} />
-                                                <span className="font-bold">Ready to import</span>
-                                                {importResult.aiPowered && (
-                                                    <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full">
-                                                        AI-Powered
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="text-sm mt-1">
-                                                {importResult.imported} words found ({importResult.skipped} skipped)
-                                            </p>
-                                            {importResult.detectedFormat && (
-                                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                                    Detected format: {importResult.detectedFormat}
-                                                </p>
-                                            )}
-                                            {importResult.words.some(w => !/[а-яїієґ]/i.test(w.translation)) && (
-                                                <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
-                                                    ⚠️ Some translations may not be in Ukrainian. Consider using AI to translate.
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="max-h-40 overflow-y-auto border rounded-lg">
-                                            {importResult.words.slice(0, 5).map((word, i) => (
-                                                <div key={i} className="px-3 py-2 border-b text-sm">
-                                                    <strong>{word.term}</strong> → {word.translation}
+                                            {importResult.success ? (
+                                                <>
+                                                    <div className="bg-green-100 dark:bg-green-900/30 p-4 rounded-lg">
+                                                        <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                                                            <Check size={20} />
+                                                            <span className="font-bold">Ready to import</span>
+                                                            {importResult.aiPowered && (
+                                                                <span className="text-xs bg-purple-200 dark:bg-purple-800 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full">
+                                                                    AI-Powered
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-sm mt-1">
+                                                            {importResult.imported} words found ({importResult.skipped} skipped)
+                                                        </p>
+                                                        {importResult.detectedFormat && (
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                                                Detected format: {importResult.detectedFormat}
+                                                            </p>
+                                                        )}
+                                                        {importResult.cleanupStats && (
+                                                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-2 space-y-0.5">
+                                                                <p>Cleanup: {importResult.cleanupStats.trimmedEntries} trimmed, {importResult.cleanupStats.duplicatesRemoved} duplicates removed, {importResult.cleanupStats.emptyEntriesRemoved} empty removed</p>
+                                                            </div>
+                                                        )}
+                                                        {importResult.warnings && importResult.warnings.length > 0 && (
+                                                            <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                                                                <p className="font-bold">Warnings:</p>
+                                                                {importResult.warnings.slice(0, 3).map((w, i) => (
+                                                                    <p key={i}>{w}</p>
+                                                                ))}
+                                                                {importResult.warnings.length > 3 && <p>...and {importResult.warnings.length - 3} more</p>}
+                                                            </div>
+                                                        )}
+                                                        {importResult.words.some(w => !/[а-яїієґ]/i.test(w.translation)) && (
+                                                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-2">
+                                                                ⚠️ Some translations may not be in Ukrainian. Consider using AI to translate.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                    <div className="max-h-40 overflow-y-auto border rounded-lg">
+                                                        {importResult.words.slice(0, 5).map((word, i) => (
+                                                            <div key={i} className="px-3 py-2 border-b text-sm">
+                                                                <strong>{word.term}</strong> → {word.translation}
+                                                            </div>
+                                                        ))}
+                                                        {importResult.words.length > 5 && (
+                                                            <div className="px-3 py-2 text-sm text-gray-500">
+                                                                ...and {importResult.words.length - 5} more
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-lg">
+                                                    <p className="text-red-700 dark:text-red-400 font-bold">Import failed</p>
+                                                    {importResult.errors.map((err, i) => (
+                                                        <p key={i} className="text-sm">{err}</p>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                            {importResult.words.length > 5 && (
-                                                <div className="px-3 py-2 text-sm text-gray-500">
-                                                    ...and {importResult.words.length - 5} more
-                                                </div>
                                             )}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="bg-red-100 dark:bg-red-900/30 p-4 rounded-lg">
-                                        <p className="text-red-700 dark:text-red-400 font-bold">Import failed</p>
-                                        {importResult.errors.map((err, i) => (
-                                            <p key={i} className="text-sm">{err}</p>
-                                        ))}
-                                    </div>
-                                )}
 
                                 <div className="flex gap-2">
                                     <button
@@ -398,9 +414,19 @@ const DictionaryPage: React.FC = () => {
                                             CSV
                                         </button>
                                         <button
-                                            onClick={() => setTemplateFormat('text')}
+                                            onClick={() => setTemplateFormat('json')}
                                             className={`px-3 py-1 text-sm rounded-lg border ${
-                                                templateFormat === 'text'
+                                                templateFormat === 'json'
+                                                    ? 'bg-purple-500 text-white border-purple-500'
+                                                    : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
+                                            }`}
+                                        >
+                                            JSON
+                                        </button>
+                                        <button
+                                            onClick={() => setTemplateFormat('txt')}
+                                            className={`px-3 py-1 text-sm rounded-lg border ${
+                                                templateFormat === 'txt'
                                                     ? 'bg-purple-500 text-white border-purple-500'
                                                     : 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600'
                                             }`}
@@ -414,7 +440,7 @@ const DictionaryPage: React.FC = () => {
                                     onClick={handleDownloadTemplate}
                                     className="text-purple-500 hover:underline text-sm"
                                 >
-                                    Download {templateFormat === 'csv' ? 'CSV' : 'Text'} Template
+                                    Download {templateFormat.toUpperCase()} Template
                                 </button>
                             </div>
                         )}

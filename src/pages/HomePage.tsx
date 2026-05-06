@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Sparkles, Book, Target, TrendingUp, Calendar, Download } from 'lucide-react';
 import { useProgress } from '../hooks/useProgress';
 import { db } from '../services/db';
-import { isSupabaseConfigured } from '../services/supabase';
+import { isPBConfigured } from '../services/pocketbase';
 import StreakCounter from '../components/StreakCounter';
 import CalendarView from '../components/CalendarView';
 import CalendarModal from '../components/CalendarModal';
@@ -20,7 +20,7 @@ const HomePage: React.FC = () => {
     const [masteredWords, setMasteredWords] = useState(0);
     const [weeklyData, setWeeklyData] = useState<number[]>([]);
     const [syncing, setSyncing] = useState(false);
-    const supabaseReady = isSupabaseConfigured();
+    const pbReady = isPBConfigured();
 
     useEffect(() => {
         markActivity();
@@ -70,14 +70,14 @@ const HomePage: React.FC = () => {
     const xpProgress = progress.xp ? Math.min(progress.xp % 100, 100) : 0;
 
     const handleSyncFromCloud = async () => {
-        if (!supabaseReady) return;
+        if (!pbReady) return;
         setSyncing(true);
         try {
-            await db.syncFromSupabase();
+            await db.syncFromPocketBase();
             showToast('Data synced from cloud! Reloading...', 'success');
             setTimeout(() => window.location.reload(), 1500);
         } catch (error) {
-            showToast('Sync failed. Check Supabase config.', 'error');
+            showToast('Sync failed. Check PocketBase config.', 'error');
         } finally {
             setSyncing(false);
         }
@@ -115,7 +115,7 @@ const HomePage: React.FC = () => {
                         <Link to="/statistics" className="bg-white/20 backdrop-blur-sm text-white px-6 py-3 rounded-lg font-bold hover:bg-white/30 transition-colors inline-block flex items-center gap-2">
                             <TrendingUp size={18} /> Stats
                         </Link>
-                        {supabaseReady && (
+                        {pbReady && (
                             <button
                                 onClick={handleSyncFromCloud}
                                 disabled={syncing}

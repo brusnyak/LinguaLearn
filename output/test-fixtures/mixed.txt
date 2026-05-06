@@ -1,0 +1,5 @@
+# mixed text
+hello=привіт
+book-книга
+car
+thanks:дякую

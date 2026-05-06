@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSupabase, isSupabaseConfigured } from '../services/supabase';
+import { getPocketBase, isPBConfigured } from '../services/pocketbase';
 import { db } from '../services/db';
 
 const AuthCallbackPage: React.FC = () => {
@@ -24,84 +24,36 @@ const AuthCallbackPage: React.FC = () => {
                 addLog(`Hash present: ${hash ? 'yes' : 'no'}`);
                 addLog(`Search present: ${search ? 'yes' : 'no'}`);
                 
-                if (!isSupabaseConfigured()) {
-                    throw new Error('Supabase not configured');
+                if (!isPBConfigured()) {
+                    throw new Error('PocketBase not configured');
                 }
 
-                const supabase = getSupabase();
-                if (!supabase) throw new Error('Supabase client not initialized');
+                const pb = getPocketBase();
+                addLog('PocketBase client ready');
 
-                addLog('Supabase client ready, flowType: implicit');
-
-                // Try to extract and set session from hash
-                if (hash && hash.includes('access_token')) {
-                    addLog('Hash contains access_token, processing...');
-                    try {
-                        const params = new URLSearchParams(hash.substring(1));
-                        const access_token = params.get('access_token');
-                        const refresh_token = params.get('refresh_token');
-                        
-                        if (access_token) {
-                            addLog('Setting session from hash...');
-                            const { data, error } = await supabase.auth.setSession({
-                                access_token,
-                                refresh_token: refresh_token || ''
-                            });
-                            
-                            if (error) {
-                                addLog(`setSession error: ${error.message}`);
-                            } else if (data.session) {
-                                addLog(`✅ Session set! User: ${data.session.user.email}`);
-                                try {
-                                    addLog('Syncing local data to cloud...');
-                                    await db.syncToSupabase();
-                                    addLog('✅ Local data synced to cloud');
-                                } catch (syncErr: any) {
-                                    addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
-                                }
-                                localStorage.setItem('currentUserId', data.session.user.id);
-                                addLog('Redirecting to home in 1s...');
-                                setTimeout(() => navigate('/'), 1000);
-                                return;
-                            }
-                        }
-                    } catch (e: any) {
-                        addLog(`Hash processing error: ${e.message}`);
-                    }
-                }
-
-                // Fallback: check if session was auto-detected
+                // Check if already authenticated
                 addLog('Checking for existing session...');
-                const { data: { session }, error } = await supabase.auth.getSession();
-                
-                if (error) {
-                    addLog(`Session error: ${error.message}`);
-                }
-                
-                addLog(`Session: ${session ? 'FOUND ✅' : 'NOT FOUND ❌'}`);
-                
-                if (session) {
-                    addLog(`✅ Logged in as: ${session.user.email || session.user.id}`);
+                if (pb.authStore.isValid) {
+                    addLog(`✅ Already logged in: ${pb.authStore.model?.email || pb.authStore.model?.id}`);
                     try {
                         addLog('Syncing local data to cloud...');
-                        await db.syncToSupabase();
+                        await db.syncToPocketBase();
                         addLog('✅ Local data synced to cloud');
                     } catch (syncErr: any) {
                         addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
                     }
-                    localStorage.setItem('currentUserId', session.user.id);
-                    setTimeout(() => {
-                        addLog('Redirecting to home...');
-                        navigate('/');
-                    }, 1000);
-                } else {
-                    addLog('❌ No session found after OAuth');
-                    addLog('Check: 1) Google OAuth enabled, 2) Correct anon key, 3) Site URL set');
-                    setTimeout(() => {
-                        addLog('Redirecting to login...');
-                        navigate('/login');
-                    }, 5000);
+                    localStorage.setItem('currentUserId', pb.authStore.model?.id || '');
+                    addLog('Redirecting to home in 1s...');
+                    setTimeout(() => navigate('/'), 1000);
+                    return;
                 }
+                
+                addLog('❌ No session found');
+                addLog('Check: 1) Email/password login required, 2) Correct PocketBase URL');
+                setTimeout(() => {
+                    addLog('Redirecting to login...');
+                    navigate('/login');
+                }, 5000);
             } catch (err: any) {
                 console.error('Auth callback error:', err);
                 addLog(`❌ Error: ${err.message}`);
