@@ -436,7 +436,7 @@ const SettingsPage: React.FC = () => {
 
             <AppearanceSettings />
 
-            {/* Cloud Sync Section */}
+             {/* Cloud Sync Section */}
             {isSupabaseConfigured() && (
                 <div className="bg-[var(--color-bg-card)] rounded-xl p-6 shadow-sm space-y-4">
                     <div className="flex items-center gap-2 text-[var(--color-primary)]">
@@ -472,15 +472,28 @@ const SettingsPage: React.FC = () => {
                     ) : (
                         <>
                             <p className="text-sm text-[var(--color-text-muted)]">
-                                Login with Google to enable cloud sync across devices.
+                                {currentUsername ? (
+                                    <>
+                                        You're logged in as <span className="font-medium">{currentUsername}</span> (local account). Link to a cloud account to sync across devices.
+                                    </>
+                                ) : (
+                                    'Login with Google or email to enable cloud sync across devices.'
+                                )}
                             </p>
-                            <button
-                                onClick={handleGoogleLogin}
-                                className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
-                            >
-                                <Chrome size={20} />
-                                Login with Google
-                            </button>
+                            <div className="flex flex-col gap-3">
+                                <button
+                                    onClick={handleGoogleLogin}
+                                    className="w-full md:w-auto px-6 py-3 bg-white text-gray-900 border-2 border-gray-300 rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Chrome size={20} />
+                                    Login with Google
+                                </button>
+                                {currentUsername && (
+                                    <p className="text-xs text-[var(--color-text-muted)] text-center">
+                                        Or create a cloud account with email in the onboarding flow.
+                                    </p>
+                                )}
+                            </div>
                         </>
                     )}
                 </div>

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Book, Gamepad2, Settings, Home, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Book, Gamepad2, Settings, Home, ChevronLeft, ChevronRight, LogOut, CheckCircle } from 'lucide-react';
 import { useDevice } from '../hooks/useDevice';
+import { getCurrentUser, isUsingSupabaseAuth, logoutUser } from '../services/auth';
+import { isSupabaseConfigured } from '../services/supabase';
 
 interface LayoutProps {
     children: React.ReactNode;
@@ -13,6 +15,20 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
     const { isMobile } = useDevice();
     const [isOnline, setIsOnline] = useState(navigator.onLine);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [user, setUser] = useState<any>(null);
+    const [isSupabase, setIsSupabase] = useState(false);
+
+    useEffect(() => {
+        const loadUser = async () => {
+            const u = await getCurrentUser();
+            setUser(u);
+            if (isSupabaseConfigured()) {
+                const isAuth = await isUsingSupabaseAuth();
+                setIsSupabase(isAuth);
+            }
+        };
+        loadUser();
+    }, []);
 
     // Initialize sidebar state and enable dark mode
     useEffect(() => {
@@ -95,7 +111,36 @@ const Layout: React.FC<LayoutProps> = ({ children, fullscreen = false }) => {
                         })}
                     </nav>
 
-                    <div className="p-4 border-t border-[var(--color-border)]">
+                    <div className="p-4 border-t border-[var(--color-border)] space-y-3">
+                        {user && (
+                            <div className={`flex items-center gap-3 ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+                                <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold text-sm">
+                                    {user.profile?.name?.[0] || user.username?.[0] || 'U'}
+                                </div>
+                                {!isSidebarCollapsed && (
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{user.profile?.name || user.username}</p>
+                                        {isSupabase && (
+                                            <p className="text-xs text-green-500 flex items-center gap-1">
+                                                <CheckCircle size={12} /> Cloud synced
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        {!isSidebarCollapsed && (
+                            <button
+                                onClick={() => {
+                                    logoutUser();
+                                    window.location.href = '/login';
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            >
+                                <LogOut size={16} />
+                                Logout
+                            </button>
+                        )}
                     </div>
                 </aside>
             )}
