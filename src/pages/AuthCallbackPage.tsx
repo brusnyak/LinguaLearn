@@ -28,6 +28,13 @@ const AuthCallbackPage: React.FC = () => {
                 const client = supabaseService.getSupabase();
                 if (!client) throw new Error('Supabase client failed to initialize');
 
+                // Check for error in URL
+                const params = new URLSearchParams(window.location.search);
+                const error = params.get('error_description') || params.get('error');
+                if (error) {
+                    throw new Error(error);
+                }
+
                 addLog('Checking for established session...');
                 
                 // Try immediate session
@@ -38,15 +45,27 @@ const AuthCallbackPage: React.FC = () => {
                     return;
                 }
 
+                // If no immediate session, check for 'code' (PKCE)
+                const code = params.get('code');
+                if (code) {
+                    addLog('Found code in URL, exchanging for session...');
+                    const { data, error: exchangeError } = await client.auth.exchangeCodeForSession(code);
+                    if (exchangeError) throw exchangeError;
+                    if (data.session) {
+                        await processSession(data.session);
+                        return;
+                    }
+                }
+
                 addLog('Session not immediately available, listening for auth state change...');
 
                 // Set a timeout to bail out if no session is detected
                 const timeoutId = setTimeout(() => {
                     if (isMounted) {
-                        addLog('❌ Timeout: No session detected after 10s');
-                        setError('No session found. Please try logging in again.');
+                        addLog('❌ Timeout: No session detected after 15s');
+                        setError('No session found. Please try logging in again. Ensure Google Auth is enabled in Supabase.');
                     }
-                }, 10000);
+                }, 15000);
 
                 const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
                     addLog(`Auth event: ${event}`);
@@ -74,14 +93,16 @@ const AuthCallbackPage: React.FC = () => {
             addLog(`✅ Logged in: ${session.user.email}`);
             
             try {
-                addLog('Syncing local data to cloud...');
-                // Note: db.syncToCloud will handle updating the local user ID 
-                // and migrating data from the old local ID to the new cloud ID.
+                addLog('Reconciling local data with cloud...');
+                // Ensure the local currentUserId is set correctly for the sync
+                localStorage.setItem('currentUserId', session.user.id);
+                
+                addLog('Starting syncToCloud...');
                 await db.syncToCloud();
-                addLog('✅ Local data synced to cloud');
+                addLog('✅ Local data reconciled with cloud');
             } catch (syncErr: any) {
-                addLog(`⚠️ Auto-sync failed: ${syncErr?.message || 'unknown error'}`);
-                // Even if sync fails, we have the session, so we can proceed
+                addLog(`⚠️ Reconcile failed: ${syncErr?.message || 'unknown error'}`);
+                console.error('Sync error:', syncErr);
             }
             
             addLog('Redirecting to home in 1s...');
@@ -99,9 +120,9 @@ const AuthCallbackPage: React.FC = () => {
                 <div className="text-center space-y-4 max-w-lg mx-auto p-6">
                     <div className="text-red-500 text-2xl font-bold">Authentication Failed</div>
                     <p className="text-[var(--color-text-muted)]">{error}</p>
-                    <div className="text-xs text-left bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto max-h-64 font-mono">
+                    <div className="text-xs text-left bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded overflow-auto max-h-64 font-mono shadow-inner border border-gray-200 dark:border-gray-700">
                         {logs.map((log, i) => (
-                            <div key={i} className="py-1 border-b border-gray-200 dark:border-gray-700">{log}</div>
+                            <div key={i} className="py-1 border-b border-gray-100 dark:border-gray-700">{log}</div>
                         ))}
                     </div>
                     <button
@@ -120,9 +141,9 @@ const AuthCallbackPage: React.FC = () => {
             <div className="text-center space-y-4 max-w-lg mx-auto p-6">
                 <div className="animate-spin w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full mx-auto"></div>
                 <p className="text-[var(--color-text-muted)] text-lg">Processing authentication...</p>
-                <div className="text-xs text-left bg-gray-100 dark:bg-gray-800 p-4 rounded overflow-auto max-h-64 font-mono">
+                <div className="text-xs text-left bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 p-4 rounded overflow-auto max-h-64 font-mono shadow-inner border border-gray-200 dark:border-gray-700">
                     {logs.map((log, i) => (
-                        <div key={i} className="py-1 border-b border-gray-200 dark:border-gray-700">{log}</div>
+                        <div key={i} className="py-1 border-b border-gray-100 dark:border-gray-700">{log}</div>
                     ))}
                 </div>
             </div>

@@ -312,42 +312,70 @@ export const db = {
 
     // Sync all local data to Supabase and update local user ID
     async syncToCloud(): Promise<void> {
+        console.log('[DB Sync] Starting syncToCloud...');
         if (!(await isUsingCloudAuth())) {
+            console.warn('[DB Sync] Not logged in to cloud, skipping syncToCloud');
             throw new Error('Not logged in to cloud. Please login first.');
         }
 
         const session = await supabaseService.getCurrentSession();
-        if (!session?.user) throw new Error('No Supabase user found');
+        if (!session?.user) {
+            console.error('[DB Sync] No Supabase user found in session');
+            throw new Error('No Supabase user found');
+        }
+        
         const cloudUserId = session.user.id;
         const localUserId = getCurrentUserId();
+        console.log('[DB Sync] User IDs:', { localUserId, cloudUserId });
 
         // Get all local data
+        console.log('[DB Sync] Fetching local data...');
         const words = await this.getWords();
         const settings = await this.getSettings();
         const progress = await this.getProgress();
+        console.log('[DB Sync] Data to sync:', { wordsCount: words.length, hasSettings: !!settings, hasProgress: !!progress });
 
         // Sync to Supabase
-        if (words.length > 0) await supabaseService.syncWordsToSupabase(words);
-        if (settings) await supabaseService.syncSettingsToSupabase(settings);
-        if (progress) await supabaseService.syncProgressToSupabase(progress);
+        try {
+            if (words.length > 0) {
+                console.log('[DB Sync] Syncing words...');
+                await supabaseService.syncWordsToSupabase(words);
+            }
+            if (settings) {
+                console.log('[DB Sync] Syncing settings...');
+                await supabaseService.syncSettingsToSupabase(settings);
+            }
+            if (progress) {
+                console.log('[DB Sync] Syncing progress...');
+                await supabaseService.syncProgressToSupabase(progress);
+            }
+        } catch (err: any) {
+            console.error('[DB Sync] Supabase sync error:', err);
+            throw err;
+        }
 
-        // Update local user ID to match Supabase user ID
+        // Update local user ID to match Supabase user ID if they differ
         if (localUserId && localUserId !== cloudUserId) {
+            console.log('[DB Sync] Migrating local data from', localUserId, 'to', cloudUserId);
             const dbInstance = await initDB();
 
-            // Update words
+            // Update words in IndexedDB
             const tx = dbInstance.transaction('words', 'readwrite');
             const allWords = await tx.store.getAll();
+            let updatedCount = 0;
             for (const word of allWords) {
                 if (!word.userId || word.userId === localUserId) {
                     word.userId = cloudUserId;
                     await tx.store.put(word);
+                    updatedCount++;
                 }
             }
             await tx.done;
+            console.log('[DB Sync] Updated', updatedCount, 'words in IndexedDB');
 
             // Update progress key
             if (progress) {
+                console.log('[DB Sync] Updating progress key');
                 await dbInstance.delete('progress', `progress-${localUserId}`);
                 await dbInstance.put('progress', progress, `progress-${cloudUserId}`);
             }
@@ -360,40 +388,53 @@ export const db = {
             const userStore = userTx.objectStore('users');
             const localUser = await userStore.get(localUserId);
             if (localUser) {
+                console.log('[DB Sync] Updating user record in IndexedDB');
                 await userStore.delete(localUserId);
                 localUser.id = cloudUserId;
                 await userStore.put(localUser);
             }
             await userTx.done;
+            console.log('[DB Sync] Migration complete');
         }
     },
 
     // Pull data from Supabase to local
     async syncFromCloud(): Promise<void> {
+        console.log('[DB Sync] Starting syncFromCloud...');
         if (!(await isUsingCloudAuth())) return;
 
-        const remoteWords = await supabaseService.syncWordsFromSupabase();
-        const remoteSettings = await supabaseService.syncSettingsFromSupabase();
-        const remoteProgress = await supabaseService.syncProgressFromSupabase();
+        try {
+            console.log('[DB Sync] Fetching remote data...');
+            const remoteWords = await supabaseService.syncWordsFromSupabase();
+            const remoteSettings = await supabaseService.syncSettingsFromSupabase();
+            const remoteProgress = await supabaseService.syncProgressFromSupabase();
+            console.log('[DB Sync] Remote data received:', { wordsCount: remoteWords.length, hasSettings: !!remoteSettings, hasProgress: !!remoteProgress });
 
-        const db = await initDB();
+            const db = await initDB();
 
-        if (remoteWords.length > 0) {
-            const tx = db.transaction('words', 'readwrite');
-            for (const word of remoteWords) {
-                await tx.store.put(word);
+            if (remoteWords.length > 0) {
+                const tx = db.transaction('words', 'readwrite');
+                for (const word of remoteWords) {
+                    await tx.store.put(word);
+                }
+                await tx.done;
+                console.log('[DB Sync] Updated local words store');
             }
-            await tx.done;
-        }
 
-        if (remoteSettings) {
-            await db.put('settings', remoteSettings, 'user-settings');
-        }
+            if (remoteSettings) {
+                await db.put('settings', remoteSettings, 'user-settings');
+                console.log('[DB Sync] Updated local settings store');
+            }
 
-        if (remoteProgress) {
-            const userId = getCurrentUserId();
-            const key = userId ? `progress-${userId}` : 'progress';
-            await db.put('progress', remoteProgress, key);
+            if (remoteProgress) {
+                const userId = getCurrentUserId();
+                const key = userId ? `progress-${userId}` : 'progress';
+                await db.put('progress', remoteProgress, key);
+                console.log('[DB Sync] Updated local progress store');
+            }
+        } catch (err: any) {
+            console.error('[DB Sync] syncFromCloud error:', err);
+            throw err;
         }
     }
 };

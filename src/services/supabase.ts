@@ -16,7 +16,6 @@ export function getSupabase() {
   if (!supabase && supabaseUrl && supabaseAnonKey) {
     supabase = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        flowType: 'implicit', // Use hash fragment - simpler
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true,
