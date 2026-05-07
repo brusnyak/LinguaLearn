@@ -7,7 +7,8 @@ const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string)?.trim
 // Debug log (remove in production)
 console.log('Supabase config check:', {
   url: supabaseUrl ? '✓ Set' : '✗ Missing',
-  anonKey: supabaseAnonKey ? `✓ Set (${supabaseAnonKey.substring(0, 20)}...)` : '✗ Missing'
+  anonKey: supabaseAnonKey ? `✓ Set (${supabaseAnonKey.substring(0, 20)}...)` : '✗ Missing',
+  isModernKey: supabaseAnonKey?.startsWith('sb_publishable_')
 });
 
 let supabase: SupabaseClient | null = null;
